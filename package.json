@@ -1,0 +1,67 @@
+{
+  "name": "cursor-share-image-mirror",
+  "displayName": "Cursor Share Image Mirror",
+  "description": "把远端 Linux 上的聊天图片镜像到 Windows 本机路径，使分享带图会话时能读到文件。",
+  "version": "0.0.1",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "extensionKind": [
+    "ui"
+  ],
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:shareImageMirror.sync"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": false,
+    "untrustedWorkspaces": {
+      "supported": true,
+      "description": "只有手动执行命令时，才会把远端 assets 复制到本机镜像路径。"
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "shareImageMirror.sync",
+        "title": "Sync remote chat images for share",
+        "category": "Share Image Mirror"
+      }
+    ],
+    "configuration": {
+      "title": "Share Image Mirror",
+      "properties": {
+        "shareImageMirror.remoteAssetsDir": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "远端 assets 目录的绝对路径，使用正斜杠。留空则按当前工作区自动查找，例如 `/root/.cursor/projects/data-workspace-main/assets`。"
+        },
+        "shareImageMirror.remoteHome": {
+          "type": "string",
+          "default": "/root",
+          "markdownDescription": "远端用户主目录。聊天图片在 `<主目录>/.cursor/projects/<项目>/assets`。"
+        },
+        "shareImageMirror.localDrive": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "本机镜像盘符，例如 `C:`。留空时写入 Cursor 安装盘、系统盘和扩展进程当前盘（通常都是 `C:`）。分享日志里的 `\\root\\...` 落在 Cursor 进程的当前盘上。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "test": "node test/paths.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.9.2"
+  }
+}
