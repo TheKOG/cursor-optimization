@@ -1,3 +1,4 @@
 node_modules/
 *.vsix
+!cursor-share-image-mirror-0.0.1.vsix
 *.tsbuildinfo
