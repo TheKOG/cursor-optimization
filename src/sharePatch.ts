@@ -3,6 +3,8 @@ import {
   CACHE_MENU_FROM,
   CACHE_MENU_TO,
   CACHE_METHODS,
+  CACHE_READ_BYTES,
+  CACHE_READ_BYTES_OLD,
   CACHE_REGISTER_FROM,
   CACHE_REGISTER_TO,
   GLASS_FORK_FROM,
@@ -96,9 +98,24 @@ export function applyImagePathPatch(source: string): { source: string; status: P
   return { source: source.replace(IMAGE_FROM, `${IMAGE_PATH_MARKER}${IMAGE_TO}`), status: "inserted" };
 }
 
+function upgradeCacheReadBytes(source: string): { source: string; changed: boolean } {
+  let next = source;
+  let changed = false;
+  for (const fileFn of ["we.file", "Ze.file"] as const) {
+    const old = CACHE_READ_BYTES_OLD.replaceAll("we.file", fileFn);
+    const neu = CACHE_READ_BYTES.replaceAll("we.file", fileFn);
+    if (next.includes(old)) {
+      next = next.split(old).join(neu);
+      changed = true;
+    }
+  }
+  return { source: next, changed };
+}
+
 export function applyShareCachePatch(source: string): { source: string; status: PatchStatus } {
   if (source.includes(SHARE_CACHE_MARKER)) {
-    return { source, status: "already" };
+    const upgraded = upgradeCacheReadBytes(source);
+    return { source: upgraded.source, status: upgraded.changed ? "inserted" : "already" };
   }
   if (
     countOf(source, CACHE_MENU_FROM) !== 1 ||
@@ -136,7 +153,8 @@ export function glassCacheMethods(): string {
 
 export function applyGlassShareCachePatch(source: string): { source: string; status: PatchStatus } {
   if (source.includes(SHARE_CACHE_MARKER)) {
-    return { source, status: "already" };
+    const upgraded = upgradeCacheReadBytes(source);
+    return { source: upgraded.source, status: upgraded.changed ? "inserted" : "already" };
   }
   if (
     countOf(source, GLASS_MENU_FROM) !== 1 ||

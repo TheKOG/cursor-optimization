@@ -2,7 +2,7 @@
   "name": "cursor-optimization",
   "displayName": "Cursor Optimization",
   "description": "Trim oversized Cursor shares to a length the server accepts, and cache a transcript in the workspace so you can fork it locally.",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "publisher": "TheKOG",
   "license": "MIT",
   "repository": {

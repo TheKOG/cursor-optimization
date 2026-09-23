@@ -3,6 +3,7 @@
 const assert = require("assert");
 const { shareTooBig, shareWithinLimit, shrinkMessages } = require("../out/shareTrim");
 const { applyEditorTitleCachePatch, applyGlassShareCachePatch, applyImagePathPatch, applyShareCachePatch, applyShareErrorPatch, applyShareTrimPatch, buildShareTrimRuntime, SHARE_ERROR_MARKER, SHARE_TRIM_MARKER } = require("../out/sharePatch");
+const { CACHE_READ_BYTES, CACHE_READ_BYTES_OLD } = require("../out/cacheWorkbench");
 
 function limitError() {
   const err = new Error("Error");
@@ -346,7 +347,14 @@ function testCachePatch() {
   assert.ok(first.source.includes("$e(__ShareTrimCacheCommand)"));
   assert.ok(first.source.includes("$e(__ShareTrimForkCommand)"));
   assert.ok(first.source.includes("context.selectedImages"));
+  assert.ok(first.source.includes("fs.existsSync(p)"));
   assert.strictEqual(applyShareCachePatch(first.source).status, "already");
+  const stale = first.source.replace(CACHE_READ_BYTES, CACHE_READ_BYTES_OLD);
+  assert.ok(stale.includes("const attempts=[we.file(imagePath)]"));
+  const upgraded = applyShareCachePatch(stale);
+  assert.strictEqual(upgraded.status, "inserted");
+  assert.ok(upgraded.source.includes("fs.existsSync(p)"));
+  assert.ok(!upgraded.source.includes("const attempts=[we.file(imagePath)]"));
   assert.strictEqual(applyShareCachePatch("nope").status, "missing-anchor");
   const methodsStart = first.source.indexOf("async __shareTrimLang()");
   const methodsEnd = first.source.indexOf("async forkSharedConversation(e,t){if(!UQe())");

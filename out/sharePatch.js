@@ -70,9 +70,23 @@ function applyImagePathPatch(source) {
     }
     return { source: source.replace(IMAGE_FROM, `${exports.IMAGE_PATH_MARKER}${IMAGE_TO}`), status: "inserted" };
 }
+function upgradeCacheReadBytes(source) {
+    let next = source;
+    let changed = false;
+    for (const fileFn of ["we.file", "Ze.file"]) {
+        const old = cacheWorkbench_1.CACHE_READ_BYTES_OLD.replaceAll("we.file", fileFn);
+        const neu = cacheWorkbench_1.CACHE_READ_BYTES.replaceAll("we.file", fileFn);
+        if (next.includes(old)) {
+            next = next.split(old).join(neu);
+            changed = true;
+        }
+    }
+    return { source: next, changed };
+}
 function applyShareCachePatch(source) {
     if (source.includes(cacheWorkbench_1.SHARE_CACHE_MARKER)) {
-        return { source, status: "already" };
+        const upgraded = upgradeCacheReadBytes(source);
+        return { source: upgraded.source, status: upgraded.changed ? "inserted" : "already" };
     }
     if (countOf(source, cacheWorkbench_1.CACHE_MENU_FROM) !== 1 ||
         countOf(source, cacheWorkbench_1.CACHE_FORK_FROM) !== 1 ||
@@ -104,7 +118,8 @@ function glassCacheMethods() {
 }
 function applyGlassShareCachePatch(source) {
     if (source.includes(cacheWorkbench_1.SHARE_CACHE_MARKER)) {
-        return { source, status: "already" };
+        const upgraded = upgradeCacheReadBytes(source);
+        return { source: upgraded.source, status: upgraded.changed ? "inserted" : "already" };
     }
     if (countOf(source, cacheWorkbench_1.GLASS_MENU_FROM) !== 1 ||
         countOf(source, cacheWorkbench_1.GLASS_FORK_FROM) !== 1 ||
