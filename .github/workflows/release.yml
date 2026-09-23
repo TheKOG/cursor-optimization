@@ -30,10 +30,22 @@ jobs:
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           if [ -z "${OVSX_PAT:-}" ]; then
             echo "Missing OVSX_PAT secret"
             exit 1
           fi
           VERSION="$(node -p "require('./package.json').version")"
-          npx --yes ovsx publish "cursor-optimization-${VERSION}.vsix"
+          set +e
+          OUT="$(npx --yes ovsx publish "cursor-optimization-${VERSION}.vsix" 2>&1)"
+          STATUS=$?
+          set -e
+          printf '%s\n' "$OUT"
+          if [ "$STATUS" -eq 0 ]; then
+            exit 0
+          fi
+          if printf '%s\n' "$OUT" | grep -qi "already published"; then
+            echo "Open VSX already has this version; continuing"
+            exit 0
+          fi
+          exit "$STATUS"
