@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,8 +14,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: softprops/action-gh-release@v2
+      - uses: actions/setup-node@v4
         with:
-          files: cursor-share-image-mirror-0.0.1.vsix
-          body: |
-            在 Cursor 中执行 Extensions: Install from VSIX，选择 cursor-share-image-mirror-0.0.1.vsix。
+          node-version: "22"
+      - run: npm ci
+      - run: npm test
+      - name: Package VSIX
+        run: node scripts/pack-vsix.js
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: cursor-optimization-*.vsix
+          generate_release_notes: true
+      - name: Publish to Open VSX
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OVSX_PAT:-}" ]; then
+            echo "Missing OVSX_PAT secret"
+            exit 1
+          fi
+          VERSION="$(node -p "require('./package.json').version")"
+          npx --yes ovsx publish "cursor-optimization-${VERSION}.vsix"
