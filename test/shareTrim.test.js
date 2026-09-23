@@ -17,6 +17,8 @@ async function testKeepsLongestSuffix() {
   const result = await shareWithinLimit({
     messages,
     title: "chat",
+    minAttempts: 8,
+    maxAttempts: 20,
     async send(slice, title, includePlan) {
       const weight = slice.reduce((sum, message) => sum + message.weight, 0) + (includePlan ? 1000 : 0);
       if (weight > 30) {
@@ -53,6 +55,8 @@ async function testKeepsImagesFromTrimmedMessages() {
   const result = await shareWithinLimit({
     messages,
     title: "pics",
+    minAttempts: 10,
+    maxAttempts: 20,
     async send(slice) {
       if (slice.length > 3) {
         throw limitError();
@@ -63,6 +67,92 @@ async function testKeepsImagesFromTrimmedMessages() {
   });
   assert.strictEqual(result.shareId, "n3-i1");
   assert.strictEqual(result.imageCount, 1);
+}
+
+async function testMaxAttemptsStopsTheSearch() {
+  let calls = 0;
+  const messages = Array.from({ length: 8 }, () => ({ weight: 1 }));
+  const result = await shareWithinLimit({
+    messages,
+    title: "cap",
+    maxAttempts: 3,
+    async send(slice) {
+      calls += 1;
+      if (slice.length > 4) {
+        throw limitError();
+      }
+      return { shareId: `len-${slice.length}`, shareUrl: "u", redactions: 0 };
+    },
+  });
+  assert.strictEqual(calls, 3);
+  assert.strictEqual(result.attempt, 3);
+  assert.strictEqual(result.messageCount, 4);
+}
+
+async function testMinAttemptsKeepsSearching() {
+  let calls = 0;
+  const messages = Array.from({ length: 16 }, () => ({ weight: 1 }));
+  const result = await shareWithinLimit({
+    messages,
+    title: "floor",
+    minAttempts: 6,
+    maxAttempts: 10,
+    async send(slice) {
+      calls += 1;
+      if (slice.length > 4) {
+        throw limitError();
+      }
+      return { shareId: `len-${slice.length}`, shareUrl: "u", redactions: 0 };
+    },
+  });
+  assert.ok(calls >= 6);
+  assert.strictEqual(result.messageCount, 4);
+}
+
+async function testMinStopsOnceASuccessExists() {
+  const messages = Array.from({ length: 8 }, () => ({ weight: 1 }));
+  async function run(minAttempts) {
+    let calls = 0;
+    const result = await shareWithinLimit({
+      messages,
+      title: "floor",
+      minAttempts,
+      maxAttempts: 10,
+      async send(slice) {
+        calls += 1;
+        if (slice.length > 6) {
+          throw limitError();
+        }
+        return { shareId: `len-${slice.length}`, shareUrl: "u", redactions: 0 };
+      },
+    });
+    return { result, calls };
+  }
+  const early = await run(1);
+  const later = await run(5);
+  assert.strictEqual(early.calls, 3);
+  assert.strictEqual(early.result.messageCount, 4);
+  assert.strictEqual(later.calls, 5);
+  assert.strictEqual(later.result.messageCount, 6);
+}
+
+async function testMaxStopsWithoutSuccess() {
+  let calls = 0;
+  await assert.rejects(
+    () =>
+      shareWithinLimit({
+        messages: Array.from({ length: 4 }, () => ({ text: "x".repeat(5000) })),
+        title: "never",
+        minAttempts: 1,
+        maxAttempts: 2,
+        async send() {
+          calls += 1;
+          throw limitError();
+        },
+      }),
+    (error) => shareTooBig(error)
+  );
+  assert.strictEqual(calls, 2);
 }
 
 async function testUnchangedWhenItFits() {
@@ -190,6 +280,10 @@ function testPatchRoundTrip() {
 async function main() {
   await testKeepsLongestSuffix();
   await testKeepsImagesFromTrimmedMessages();
+  await testMaxAttemptsStopsTheSearch();
+  await testMinAttemptsKeepsSearching();
+  await testMinStopsOnceASuccessExists();
+  await testMaxStopsWithoutSuccess();
   await testUnchangedWhenItFits();
   await testTrimCanBeTurnedOff();
   await testOtherErrorsPropagate();

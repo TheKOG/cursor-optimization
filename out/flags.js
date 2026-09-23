@@ -43,11 +43,25 @@ const vscode = __importStar(require("vscode"));
 function flagsPath() {
     return path.join(os.homedir(), ".cursor", "share-image-mirror.json");
 }
+function clampAttempt(value, fallback) {
+    const n = Math.floor(Number(value));
+    if (!Number.isFinite(n)) {
+        return fallback;
+    }
+    return Math.min(50, Math.max(1, n));
+}
 function readFlags() {
     const config = vscode.workspace.getConfiguration("shareImageMirror");
+    let minAttempts = clampAttempt(config.get("minAttempts"), 1);
+    let maxAttempts = clampAttempt(config.get("maxAttempts"), 16);
+    if (minAttempts > maxAttempts) {
+        minAttempts = maxAttempts;
+    }
     return {
         trim: config.get("trimEnabled") !== false,
         regenerateLink: config.get("regenerateLink") !== false,
+        minAttempts,
+        maxAttempts,
     };
 }
 async function writeFlags(flags = readFlags()) {

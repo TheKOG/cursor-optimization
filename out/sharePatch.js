@@ -13,7 +13,7 @@ exports.IMAGE_PATH_MARKER = "/*root-drive-1*/";
 const IMAGE_FROM = "function Z7f(e,t,n,i={}){const r=we.file(e.path),";
 const IMAGE_TO = 'function Z7f(e,t,n,i={}){const __p=typeof e.path==="string"&&/^[\\\\/]root[\\\\/]/.test(e.path)&&!/^[A-Za-z]:/.test(e.path)?"C:"+e.path.replace(/\\//g,"\\\\"):e.path;const r=we.file(__p),';
 function buildShareTrimRuntime() {
-    return `(function(){${shareTrim_1.shareTooBig.toString()};${shareTrim_1.shrinkMessages.toString()};return ${shareTrim_1.shareWithinLimit.toString()};})()`;
+    return `(function(){${shareTrim_1.shareTooBig.toString()};${shareTrim_1.shrinkMessages.toString()};${shareTrim_1.clampAttempt.toString()};return ${shareTrim_1.shareWithinLimit.toString()};})()`;
 }
 function applyShareTrimPatch(source) {
     if (source.includes(exports.SHARE_TRIM_MARKER)) {

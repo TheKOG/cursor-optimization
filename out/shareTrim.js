@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.shareTooBig = shareTooBig;
 exports.shrinkMessages = shrinkMessages;
 exports.shareWithinLimit = shareWithinLimit;
+exports.clampAttempt = clampAttempt;
 function shareTooBig(err) {
     const chunks = [];
     const push = (value) => {
@@ -102,6 +103,8 @@ async function shareWithinLimit(opts) {
     if (total === 0) {
         throw new Error("No content to share");
     }
+    const minAttempts = clampAttempt(opts.minAttempts, 1);
+    const maxAttempts = opts.maxAttempts == null ? null : Math.max(minAttempts, clampAttempt(opts.maxAttempts, 16));
     let best = null;
     let round = 0;
     async function remember(result) {
@@ -119,7 +122,13 @@ async function shareWithinLimit(opts) {
         best = result;
         return result;
     }
-    console.warn(`[share-trim] start messages=${total} trim=${opts.trim !== false}`);
+    function canAttempt() {
+        return maxAttempts == null || round < maxAttempts;
+    }
+    function succeededEnough() {
+        return best != null && round >= minAttempts;
+    }
+    console.warn(`[share-trim] start messages=${total} trim=${opts.trim !== false} min=${minAttempts} max=${maxAttempts ?? "open"}`);
     if (opts.trim === false) {
         console.warn(`[share-trim] trim off, sending ${total}`);
         return attempt(total, true);
@@ -168,18 +177,20 @@ async function shareWithinLimit(opts) {
             throw err;
         }
     }
-    try {
-        return await remember(await attempt(total, false));
-    }
-    catch (err) {
-        if (!shareTooBig(err)) {
-            throw err;
+    if (canAttempt()) {
+        try {
+            return await remember(await attempt(total, false));
+        }
+        catch (err) {
+            if (!shareTooBig(err)) {
+                throw err;
+            }
         }
     }
     let lo = 0;
     let hi = total;
     let lastErr = null;
-    while (lo === 0 && hi > 1) {
+    while (lo === 0 && hi > 1 && canAttempt() && !succeededEnough()) {
         const count = Math.floor(hi / 2);
         try {
             await remember(await attempt(count, false));
@@ -193,10 +204,8 @@ async function shareWithinLimit(opts) {
             hi = count;
         }
     }
-    let expansions = 0;
-    while (best && hi - lo > 1 && expansions < 8) {
+    while (best && hi - lo > 1 && canAttempt() && !succeededEnough()) {
         const mid = Math.floor((lo + hi) / 2);
-        expansions += 1;
         try {
             await remember(await attempt(mid, false));
             lo = mid;
@@ -236,7 +245,7 @@ async function shareWithinLimit(opts) {
             }
         }
         let keep = extras.slice();
-        while (keep.length > 0) {
+        while (keep.length > 0 && canAttempt()) {
             const next = slice.map((message, i) => i === index ? { ...message, images: [...(message.images || []), ...keep] } : message);
             const info = note(count);
             try {
@@ -254,14 +263,18 @@ async function shareWithinLimit(opts) {
         return null;
     }
     if (best) {
-        const withImages = await appendDroppedImages(lo);
+        const withImages = succeededEnough() || !canAttempt() ? null : await appendDroppedImages(lo);
         const chosen = withImages || best;
-        console.warn(`[share-trim] shared ${lo}/${total} images=${chosen.imageCount ?? 0}`);
+        console.warn(`[share-trim] shared ${lo}/${total} images=${chosen.imageCount ?? 0} rounds=${round} min=${minAttempts} max=${maxAttempts ?? "open"}`);
         return chosen;
+    }
+    if (!canAttempt()) {
+        console.warn(`[share-trim] stop at max ${maxAttempts} with no success`);
+        throw lastErr instanceof Error ? lastErr : new Error("Share exceeds content limits");
     }
     let cap = 16000;
     const only = messages.slice(total - 1);
-    while (cap >= 1000) {
+    while (cap >= 1000 && canAttempt()) {
         try {
             const shrunk = shrinkMessages(only, cap);
             const info = note(1);
@@ -281,15 +294,24 @@ async function shareWithinLimit(opts) {
         ...message,
         images: [],
     }));
-    try {
-        const info = note(1);
-        const result = await send(stripped, `${title} (最近 1/${total} 条，已截断)`, false);
-        console.warn(`[share-trim] shared 1/${total} without images`);
-        return await remember(tagged(result, info, stripped));
-    }
-    catch (err) {
-        lastErr = err;
+    if (canAttempt()) {
+        try {
+            const info = note(1);
+            const result = await send(stripped, `${title} (最近 1/${total} 条，已截断)`, false);
+            console.warn(`[share-trim] shared 1/${total} without images`);
+            return await remember(tagged(result, info, stripped));
+        }
+        catch (err) {
+            lastErr = err;
+        }
     }
     throw lastErr instanceof Error ? lastErr : new Error("Share exceeds content limits");
+}
+function clampAttempt(value, fallback) {
+    const n = Math.floor(Number(value));
+    if (!Number.isFinite(n)) {
+        return fallback;
+    }
+    return Math.min(50, Math.max(1, n));
 }
 //# sourceMappingURL=shareTrim.js.map

@@ -1,4 +1,4 @@
-import { shareTooBig, shareWithinLimit, shrinkMessages } from "./shareTrim";
+import { clampAttempt, shareTooBig, shareWithinLimit, shrinkMessages } from "./shareTrim";
 
 export const SHARE_TRIM_MARKER = "/*share-trim-1*/";
 
@@ -20,7 +20,7 @@ const IMAGE_TO =
 export type PatchStatus = "inserted" | "already" | "missing-anchor";
 
 export function buildShareTrimRuntime(): string {
-  return `(function(){${shareTooBig.toString()};${shrinkMessages.toString()};return ${shareWithinLimit.toString()};})()`;
+  return `(function(){${shareTooBig.toString()};${shrinkMessages.toString()};${clampAttempt.toString()};return ${shareWithinLimit.toString()};})()`;
 }
 
 export function applyShareTrimPatch(source: string): { source: string; status: PatchStatus } {
