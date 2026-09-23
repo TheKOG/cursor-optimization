@@ -9,7 +9,7 @@ const stage = path.join(process.env.TEMP, "share-image-mirror-vsix");
 fs.rmSync(stage, { recursive: true, force: true });
 fs.mkdirSync(path.join(stage, "extension", "out"), { recursive: true });
 
-for (const name of ["package.json", "README.md", "README.en.md"]) {
+for (const name of ["package.json", "README.md"]) {
   fs.copyFileSync(path.join(src, name), path.join(stage, "extension", name));
 }
 for (const name of fs.readdirSync(path.join(src, "out"))) {

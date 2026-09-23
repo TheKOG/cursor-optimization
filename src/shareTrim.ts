@@ -129,6 +129,7 @@ export async function shareWithinLimit(opts: {
   send: ShareSend;
   deleteShare?: (shareId: string) => Promise<unknown>;
   trim?: boolean;
+  includePlan?: boolean;
   minAttempts?: number;
   maxAttempts?: number;
   onAttempt?: (info: ShareAttempt) => void;
@@ -141,7 +142,8 @@ export async function shareWithinLimit(opts: {
   if (total === 0) {
     throw new Error("No content to share");
   }
-  const minAttempts = clampAttempt(opts.minAttempts, 1);
+  const withPlan = opts.includePlan === true;
+  const minAttempts = clampAttempt(opts.minAttempts, 3);
   const maxAttempts = opts.maxAttempts == null ? null : Math.max(minAttempts, clampAttempt(opts.maxAttempts, 16));
 
   let best: ShareResult | null = null;
@@ -172,12 +174,12 @@ export async function shareWithinLimit(opts: {
   }
 
   console.warn(
-    `[share-trim] start messages=${total} trim=${opts.trim !== false} min=${minAttempts} max=${maxAttempts ?? "open"}`
+    `[share-trim] start messages=${total} trim=${opts.trim !== false} plan=${withPlan} min=${minAttempts} max=${maxAttempts ?? "open"}`
   );
 
   if (opts.trim === false) {
     console.warn(`[share-trim] trim off, sending ${total}`);
-    return attempt(total, true);
+    return attempt(total, withPlan);
   }
 
   function note(count: number): ShareAttempt {
@@ -222,20 +224,10 @@ export async function shareWithinLimit(opts: {
   }
 
   try {
-    return await remember(await attempt(total, true));
+    return await remember(await attempt(total, withPlan));
   } catch (err) {
     if (!shareTooBig(err)) {
       throw err;
-    }
-  }
-
-  if (canAttempt()) {
-    try {
-      return await remember(await attempt(total, false));
-    } catch (err) {
-      if (!shareTooBig(err)) {
-        throw err;
-      }
     }
   }
 
@@ -245,7 +237,7 @@ export async function shareWithinLimit(opts: {
   while (lo === 0 && hi > 1 && canAttempt() && !succeededEnough()) {
     const count = Math.floor(hi / 2);
     try {
-      await remember(await attempt(count, false));
+      await remember(await attempt(count, withPlan));
       lo = count;
     } catch (err) {
       lastErr = err;
@@ -259,7 +251,7 @@ export async function shareWithinLimit(opts: {
   while (best && hi - lo > 1 && canAttempt() && !succeededEnough()) {
     const mid = Math.floor((lo + hi) / 2);
     try {
-      await remember(await attempt(mid, false));
+      await remember(await attempt(mid, withPlan));
       lo = mid;
     } catch (err) {
       lastErr = err;
@@ -306,7 +298,7 @@ export async function shareWithinLimit(opts: {
         const result = await send(
           next,
           count === total ? title : `${title} (最近 ${count}/${total} 条)`,
-          false
+          withPlan
         );
         console.warn(`[share-trim] kept ${keep.length} images from trimmed messages`);
         return await remember(tagged(result, info, next));
@@ -339,7 +331,7 @@ export async function shareWithinLimit(opts: {
     try {
       const shrunk = shrinkMessages(only, cap);
       const info = note(1);
-      const result = await send(shrunk, `${title} (最近 1/${total} 条，已截断)`, false);
+      const result = await send(shrunk, `${title} (最近 1/${total} 条，已截断)`, withPlan);
       console.warn(`[share-trim] shared 1/${total} truncated to ${cap} images=${countImages(shrunk)}`);
       return await remember(tagged(result, info, shrunk));
     } catch (err) {
@@ -358,7 +350,7 @@ export async function shareWithinLimit(opts: {
   if (canAttempt()) {
     try {
       const info = note(1);
-      const result = await send(stripped, `${title} (最近 1/${total} 条，已截断)`, false);
+      const result = await send(stripped, `${title} (最近 1/${total} 条，已截断)`, withPlan);
       console.warn(`[share-trim] shared 1/${total} without images`);
       return await remember(tagged(result, info, stripped));
     } catch (err) {

@@ -52,13 +52,14 @@ function clampAttempt(value, fallback) {
 }
 function readFlags() {
     const config = vscode.workspace.getConfiguration("shareImageMirror");
-    let minAttempts = clampAttempt(config.get("minAttempts"), 1);
+    let minAttempts = clampAttempt(config.get("minAttempts"), 3);
     let maxAttempts = clampAttempt(config.get("maxAttempts"), 16);
     if (minAttempts > maxAttempts) {
         minAttempts = maxAttempts;
     }
     return {
         trim: config.get("trimEnabled") !== false,
+        includePlan: config.get("includePlan") === true,
         regenerateLink: config.get("regenerateLink") !== false,
         minAttempts,
         maxAttempts,

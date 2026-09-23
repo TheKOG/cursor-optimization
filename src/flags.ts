@@ -5,6 +5,7 @@ import * as vscode from "vscode";
 
 export interface ShareTrimFlags {
   trim: boolean;
+  includePlan: boolean;
   regenerateLink: boolean;
   minAttempts: number;
   maxAttempts: number;
@@ -24,13 +25,14 @@ function clampAttempt(value: unknown, fallback: number): number {
 
 export function readFlags(): ShareTrimFlags {
   const config = vscode.workspace.getConfiguration("shareImageMirror");
-  let minAttempts = clampAttempt(config.get("minAttempts"), 1);
+  let minAttempts = clampAttempt(config.get("minAttempts"), 3);
   let maxAttempts = clampAttempt(config.get("maxAttempts"), 16);
   if (minAttempts > maxAttempts) {
     minAttempts = maxAttempts;
   }
   return {
     trim: config.get<boolean>("trimEnabled") !== false,
+    includePlan: config.get<boolean>("includePlan") === true,
     regenerateLink: config.get<boolean>("regenerateLink") !== false,
     minAttempts,
     maxAttempts,

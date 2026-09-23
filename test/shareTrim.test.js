@@ -33,7 +33,7 @@ async function testKeepsLongestSuffix() {
     },
   });
   assert.strictEqual(result.shareId, created[created.length - 1].shareId);
-  assert.strictEqual(result.attempt, 4);
+  assert.strictEqual(result.attempt, 3);
   assert.strictEqual(result.messageCount, 30);
   assert.strictEqual(result.messageTotal, 40);
   assert.strictEqual(created[created.length - 1].length, 30);
@@ -85,7 +85,7 @@ async function testMaxAttemptsStopsTheSearch() {
     },
   });
   assert.strictEqual(calls, 3);
-  assert.strictEqual(result.attempt, 3);
+  assert.strictEqual(result.attempt, 2);
   assert.strictEqual(result.messageCount, 4);
 }
 
@@ -105,7 +105,7 @@ async function testMinAttemptsKeepsSearching() {
       return { shareId: `len-${slice.length}`, shareUrl: "u", redactions: 0 };
     },
   });
-  assert.ok(calls >= 6);
+  assert.strictEqual(calls, 5);
   assert.strictEqual(result.messageCount, 4);
 }
 
@@ -130,9 +130,9 @@ async function testMinStopsOnceASuccessExists() {
   }
   const early = await run(1);
   const later = await run(5);
-  assert.strictEqual(early.calls, 3);
+  assert.strictEqual(early.calls, 2);
   assert.strictEqual(early.result.messageCount, 4);
-  assert.strictEqual(later.calls, 5);
+  assert.strictEqual(later.calls, 4);
   assert.strictEqual(later.result.messageCount, 6);
 }
 
@@ -155,6 +155,35 @@ async function testMaxStopsWithoutSuccess() {
   assert.strictEqual(calls, 2);
 }
 
+async function testPlanSwitchAppliesToEveryRound() {
+  async function run(includePlan) {
+    const plans = [];
+    const lengths = [];
+    await shareWithinLimit({
+      messages: Array.from({ length: 8 }, () => ({ weight: 1 })),
+      title: "plan",
+      includePlan,
+      minAttempts: 1,
+      maxAttempts: 4,
+      async send(slice, _title, plan) {
+        plans.push(plan);
+        lengths.push(slice.length);
+        if (slice.length > 4) {
+          throw limitError();
+        }
+        return { shareId: "ok", shareUrl: "u", redactions: 0 };
+      },
+    });
+    return { plans, lengths };
+  }
+  const on = await run(true);
+  const off = await run(false);
+  assert.deepStrictEqual(on.plans, [true, true]);
+  assert.deepStrictEqual(on.lengths, [8, 4]);
+  assert.deepStrictEqual(off.plans, [false, false]);
+  assert.deepStrictEqual(off.lengths, [8, 4]);
+}
+
 async function testUnchangedWhenItFits() {
   const messages = [{ weight: 1 }, { weight: 1 }];
   let calls = 0;
@@ -165,7 +194,7 @@ async function testUnchangedWhenItFits() {
       calls += 1;
       assert.strictEqual(slice.length, 2);
       assert.strictEqual(title, "short");
-      assert.strictEqual(includePlan, true);
+      assert.strictEqual(includePlan, false);
       return { shareId: "full", shareUrl: "u", redactions: 1 };
     },
   });
@@ -284,6 +313,7 @@ async function main() {
   await testMinAttemptsKeepsSearching();
   await testMinStopsOnceASuccessExists();
   await testMaxStopsWithoutSuccess();
+  await testPlanSwitchAppliesToEveryRound();
   await testUnchangedWhenItFits();
   await testTrimCanBeTurnedOff();
   await testOtherErrorsPropagate();
