@@ -82,6 +82,11 @@ class ShareTrimPanelProvider {
             await this.postState();
             return;
         }
+        if (message.type === "importCache") {
+            await (0, cache_1.importCache)();
+            await this.postState();
+            return;
+        }
         if (message.type === "deleteCache" && message.id) {
             await (0, cache_1.deleteCache)(message.id);
             await this.postState();
@@ -155,6 +160,7 @@ class ShareTrimPanelProvider {
     <div class="title" id="cacheTitle"></div>
     <p class="hint" id="cacheHint"></p>
     <button id="refresh" type="button"></button>
+    <button id="import" type="button"></button>
     <div id="caches"></div>
   </div>
   <script nonce="${nonce}">
@@ -176,6 +182,7 @@ class ShareTrimPanelProvider {
         cacheTitle: "本地会话",
         cacheHint: "缓存在当前工作区的 .cursor/share-trim-cache。远程工作区时，文件在服务器上。Fork 会在本地新建会话，图片一起带回来。",
         refresh: "刷新",
+        import: "导入",
         del: "删除",
         export: "导出",
         fork: "Fork",
@@ -199,6 +206,7 @@ class ShareTrimPanelProvider {
         cacheTitle: "Local chats",
         cacheHint: "Stored in the open workspace at .cursor/share-trim-cache. On a remote workspace, that folder is on the server. Fork creates a local chat and brings the images back.",
         refresh: "Refresh",
+        import: "Import",
         del: "Delete",
         export: "Export",
         fork: "Fork",
@@ -223,6 +231,7 @@ class ShareTrimPanelProvider {
       document.getElementById("cacheTitle").textContent = text.cacheTitle;
       document.getElementById("cacheHint").textContent = text.cacheHint;
       document.getElementById("refresh").textContent = text.refresh;
+      document.getElementById("import").textContent = text.import;
     }
     function renderCaches(data) {
       const code = data.language === "en" ? "en" : "zh";
@@ -290,6 +299,7 @@ class ShareTrimPanelProvider {
       renderCaches(event.data);
     });
     document.getElementById("refresh").addEventListener("click", () => vscode.postMessage({ type: "refreshCaches" }));
+    document.getElementById("import").addEventListener("click", () => vscode.postMessage({ type: "importCache" }));
     language.addEventListener("change", () => vscode.postMessage({ type: "language", value: language.value }));
     trim.addEventListener("change", () => vscode.postMessage({ type: "trim", value: trim.checked }));
     plan.addEventListener("change", () => vscode.postMessage({ type: "plan", value: plan.checked }));

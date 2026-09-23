@@ -26,14 +26,14 @@
 
 Cursor 自带的 **Share Transcript** 是只读快照。**Cache Transcript (Cursor Optimization)** 把当前会话整段写进当前工作区的 `.cursor/share-trim-cache`。远程工作区时，这个目录在服务器上，不是 Cursor 云分享。
 
-**Cursor Optimization** 面板里的 **本地会话** 列出这些缓存。可以刷新、删除、导出 JSON，以及 **Fork**。Fork 的流程和 **Fork Shared Chat** 一样，会在本机新建一份会话；来源是这份工作区缓存，而不是云上的分享链接。
+**Cursor Optimization** 面板里的 **本地会话** 列出这些缓存。可以刷新、导入、删除、导出 JSON，以及 **Fork**。导入读取本插件导出的 JSON。Fork 的流程和 **Fork Shared Chat** 一样，会在本机新建一份会话；来源是这份工作区缓存，而不是云上的分享链接。
 
 ## 使用
 
 1. 命令面板执行 **Cursor Optimization: Trim conversation to the share limit and share**。它把长度裁剪和会话缓存写进 Cursor 程序，按 Cursor 3.21.16 编写。
 2. 完全退出所有 Cursor 进程后再打开。只重载窗口不会换上已经载入的程序脚本。
 3. 在 **Cursor Optimization** 面板里确认开关，再点 **Share Transcript**。
-4. 要留下一份可 Fork 的缓存时，打开聊天右上角菜单，点 **Cache Transcript (Cursor Optimization)**。然后在面板的 **本地会话** 里刷新、删除、导出或 Fork。
+4. 要留下一份可 Fork 的缓存时，打开聊天右上角菜单，点 **Cache Transcript (Cursor Optimization)**。然后在面板的 **本地会话** 里刷新、导入、删除、导出或 Fork。
 
 Cursor 升级会覆盖安装目录里的修改。升级后再执行一次上面的命令，并重新打开 Cursor。
 
@@ -83,14 +83,14 @@ With **Regenerate link** on, each share creates a link from the current chat and
 
 Cursor's **Share Transcript** is a read-only snapshot. **Cache Transcript (Cursor Optimization)** writes the current chat into `.cursor/share-trim-cache` in the open workspace. On a remote workspace, that folder lives on the server. It is not a Cursor cloud share.
 
-The **Local chats** section of the **Cursor Optimization** panel lists those caches. You can refresh, delete, export the JSON, or **Fork**. Fork follows **Fork Shared Chat** and creates a new local chat. The source is this workspace cache, not a cloud share link.
+The **Local chats** section of the **Cursor Optimization** panel lists those caches. You can refresh, import, delete, export the JSON, or **Fork**. Import reads a JSON file this extension exported. Fork follows **Fork Shared Chat** and creates a new local chat. The source is this workspace cache, not a cloud share link.
 
 ## Usage
 
 1. Run **Cursor Optimization: Trim conversation to the share limit and share** from the Command Palette. This writes the length trim and the transcript cache into the Cursor installation. The patch matches Cursor 3.21.16.
 2. Quit every Cursor process, then open Cursor again. Reloading the window does not replace the program script already loaded.
 3. Check the switches in the **Cursor Optimization** panel, then use **Share Transcript**.
-4. To keep a cache you can fork, open the chat's top-right menu and choose **Cache Transcript (Cursor Optimization)**. Then refresh, delete, export, or fork it from **Local chats** in the panel.
+4. To keep a cache you can fork, open the chat's top-right menu and choose **Cache Transcript (Cursor Optimization)**. Then refresh, import, delete, export, or fork it from **Local chats** in the panel.
 
 A Cursor update overwrites the installation change. Run the command again after an update, then reopen Cursor.
 

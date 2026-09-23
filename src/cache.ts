@@ -1,5 +1,6 @@
 import * as os from "os";
 import * as path from "path";
+import { randomUUID } from "crypto";
 import * as vscode from "vscode";
 import { readFlags } from "./flags";
 
@@ -85,6 +86,110 @@ export async function deleteCache(id: string): Promise<void> {
     vscode.Uri.joinPath(dir, "index.json"),
     new TextEncoder().encode(JSON.stringify(next))
   );
+}
+
+function newCacheId(): string {
+  return randomUUID().replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
+}
+
+function countStoredImages(messages: unknown[]): number {
+  let count = 0;
+  for (const message of messages) {
+    if (!message || typeof message !== "object") {
+      continue;
+    }
+    const images = (message as { images?: unknown }).images;
+    if (!Array.isArray(images)) {
+      continue;
+    }
+    for (const image of images) {
+      if (image && typeof image === "object" && typeof (image as { base64?: unknown }).base64 === "string") {
+        count += 1;
+      }
+    }
+  }
+  return count;
+}
+
+export async function importCache(): Promise<void> {
+  const zh = chinese();
+  const dir = cacheDir();
+  if (!dir) {
+    void vscode.window.showErrorMessage(zh ? "请先打开一个文件夹" : "Open a folder first");
+    return;
+  }
+  const picked = await vscode.window.showOpenDialog({
+    canSelectMany: false,
+    filters: { JSON: ["json"] },
+    openLabel: zh ? "导入" : "Import",
+  });
+  const source = picked?.[0];
+  if (!source) {
+    return;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(source)));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage((zh ? "无法读取这个 JSON：" : "Could not read this JSON: ") + message);
+    return;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    void vscode.window.showErrorMessage(zh ? "这不是本插件导出的缓存会话" : "This is not a cached transcript from this extension");
+    return;
+  }
+  const payload = parsed as {
+    id?: unknown;
+    title?: unknown;
+    createdAt?: unknown;
+    messageCount?: unknown;
+    imageCount?: unknown;
+    composerId?: unknown;
+    messages?: unknown;
+  };
+  if (!Array.isArray(payload.messages) || payload.messages.length === 0) {
+    void vscode.window.showErrorMessage(zh ? "这个文件里没有对话" : "This file has no messages");
+    return;
+  }
+  const listed = await listCaches();
+  let id = typeof payload.id === "string" && SAFE_ID.test(payload.id) ? payload.id : newCacheId();
+  if (!id || listed.items.some((item) => item.id === id)) {
+    id = newCacheId();
+  }
+  if (!SAFE_ID.test(id)) {
+    void vscode.window.showErrorMessage(zh ? "无法生成缓存编号" : "Could not create a cache id");
+    return;
+  }
+  const title = String(payload.title || path.basename(source.fsPath, ".json")).slice(0, 200) || (zh ? "未命名会话" : "Untitled Chat");
+  const createdAt = typeof payload.createdAt === "number" && Number.isFinite(payload.createdAt) ? payload.createdAt : Date.now();
+  const messageCount = payload.messages.length;
+  const imageCount =
+    typeof payload.imageCount === "number" && Number.isFinite(payload.imageCount)
+      ? Math.max(0, Math.floor(payload.imageCount))
+      : countStoredImages(payload.messages);
+  const stored = {
+    version: 1,
+    id,
+    title,
+    composerId: typeof payload.composerId === "string" ? payload.composerId : "",
+    createdAt,
+    messageCount,
+    imageCount,
+    messages: payload.messages,
+  };
+  await vscode.workspace.fs.createDirectory(dir);
+  await vscode.workspace.fs.writeFile(
+    vscode.Uri.joinPath(dir, `${id}.json`),
+    new TextEncoder().encode(JSON.stringify(stored))
+  );
+  const next = listed.items.filter((item) => item.id !== id);
+  next.unshift({ id, title, createdAt, messageCount, imageCount });
+  await vscode.workspace.fs.writeFile(
+    vscode.Uri.joinPath(dir, "index.json"),
+    new TextEncoder().encode(JSON.stringify(next))
+  );
+  void vscode.window.showInformationMessage(zh ? "已导入缓存会话" : "Imported the cached transcript");
 }
 
 export async function exportCache(id: string): Promise<void> {
