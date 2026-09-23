@@ -1,3 +1,4 @@
+import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
 import { randomUUID } from "crypto";
@@ -120,16 +121,26 @@ export async function importCache(): Promise<void> {
   }
   const picked = await vscode.window.showOpenDialog({
     canSelectMany: false,
+    canSelectFiles: true,
+    canSelectFolders: false,
     filters: { JSON: ["json"] },
-    openLabel: zh ? "导入" : "Import",
+    openLabel: zh ? "从本机导入" : "Import from this PC",
+    title: zh ? "选择本机上的缓存 JSON" : "Choose a cache JSON on this computer",
+    defaultUri: vscode.Uri.file(os.homedir()),
   });
   const source = picked?.[0];
   if (!source) {
     return;
   }
+  if (source.scheme !== "file") {
+    void vscode.window.showErrorMessage(
+      zh ? "请从本机选文件，不要选远程服务器上的路径。" : "Pick a file on this computer, not on the remote server."
+    );
+    return;
+  }
   let parsed: unknown;
   try {
-    parsed = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(source)));
+    parsed = JSON.parse(await fs.readFile(source.fsPath, "utf8"));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     void vscode.window.showErrorMessage((zh ? "无法读取这个 JSON：" : "Could not read this JSON: ") + message);

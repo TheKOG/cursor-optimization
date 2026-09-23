@@ -38,6 +38,7 @@ exports.deleteCache = deleteCache;
 exports.importCache = importCache;
 exports.exportCache = exportCache;
 exports.forkCache = forkCache;
+const fs = __importStar(require("fs/promises"));
 const os = __importStar(require("os"));
 const path = __importStar(require("path"));
 const crypto_1 = require("crypto");
@@ -131,16 +132,24 @@ async function importCache() {
     }
     const picked = await vscode.window.showOpenDialog({
         canSelectMany: false,
+        canSelectFiles: true,
+        canSelectFolders: false,
         filters: { JSON: ["json"] },
-        openLabel: zh ? "导入" : "Import",
+        openLabel: zh ? "从本机导入" : "Import from this PC",
+        title: zh ? "选择本机上的缓存 JSON" : "Choose a cache JSON on this computer",
+        defaultUri: vscode.Uri.file(os.homedir()),
     });
     const source = picked?.[0];
     if (!source) {
         return;
     }
+    if (source.scheme !== "file") {
+        void vscode.window.showErrorMessage(zh ? "请从本机选文件，不要选远程服务器上的路径。" : "Pick a file on this computer, not on the remote server.");
+        return;
+    }
     let parsed;
     try {
-        parsed = JSON.parse(new TextDecoder().decode(await vscode.workspace.fs.readFile(source)));
+        parsed = JSON.parse(await fs.readFile(source.fsPath, "utf8"));
     }
     catch (error) {
         const message = error instanceof Error ? error.message : String(error);
