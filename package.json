@@ -3,7 +3,7 @@
   "displayName": "Cursor Optimization",
   "description": "分享超限时裁到服务器还能接受的长度，并可以把整段会话连图片缓存到工作区后再 Fork 回本地。",
   "version": "0.0.4",
-  "publisher": "local",
+  "publisher": "TheKOG",
   "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"

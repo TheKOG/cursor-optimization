@@ -30,7 +30,7 @@ fs.writeFileSync(
   `<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
   <Metadata>
-    <Identity Language="en-US" Id="cursor-optimization" Version="0.0.4" Publisher="local"/>
+    <Identity Language="en-US" Id="cursor-optimization" Version="0.0.4" Publisher="TheKOG"/>
     <DisplayName>Cursor Optimization</DisplayName>
     <Description>Trim oversized shares and cache a full transcript for a local fork.</Description>
   </Metadata>
