@@ -47,13 +47,12 @@ function readFlags() {
     const config = vscode.workspace.getConfiguration("shareImageMirror");
     return {
         trim: config.get("trimEnabled") !== false,
-        uploadImages: config.get("uploadImages") !== false,
         regenerateLink: config.get("regenerateLink") !== false,
     };
 }
 async function writeFlags(flags = readFlags()) {
     const file = flagsPath();
     await fs.mkdir(path.dirname(file), { recursive: true });
-    await fs.writeFile(file, `${JSON.stringify(flags, null, 2)}\n`, "utf8");
+    await fs.writeFile(file, `${JSON.stringify({ ...flags, uploadImages: false }, null, 2)}\n`, "utf8");
 }
 //# sourceMappingURL=flags.js.map

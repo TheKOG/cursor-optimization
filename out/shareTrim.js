@@ -80,11 +80,12 @@ function shrinkMessages(messages, stringCap) {
         }
         const out = {};
         for (const key of Object.keys(value)) {
-            if (key === "images") {
-                out[key] = [];
+            const raw = value[key];
+            if (key === "images" && Array.isArray(raw)) {
+                out[key] = raw;
                 continue;
             }
-            const child = shrinkValue(value[key], stringCap, depth + 1, seen);
+            const child = shrinkValue(raw, stringCap, depth + 1, seen);
             if (child !== undefined) {
                 out[key] = child;
             }
@@ -102,6 +103,7 @@ async function shareWithinLimit(opts) {
         throw new Error("No content to share");
     }
     let best = null;
+    let round = 0;
     async function remember(result) {
         if (best?.shareId &&
             result?.shareId &&
@@ -122,14 +124,35 @@ async function shareWithinLimit(opts) {
         console.warn(`[share-trim] trim off, sending ${total}`);
         return attempt(total, true);
     }
+    function note(count) {
+        round += 1;
+        const info = { attempt: round, messageCount: count, messageTotal: total };
+        opts.onAttempt?.(info);
+        console.warn(`[share-trim] round ${info.attempt} messages=${info.messageCount}/${info.messageTotal}`);
+        return info;
+    }
+    function countImages(list) {
+        let images = 0;
+        for (const message of list) {
+            const value = message?.images;
+            if (Array.isArray(value)) {
+                images += value.length;
+            }
+        }
+        return images;
+    }
+    function tagged(result, info, sent) {
+        return { ...result, ...info, imageCount: countImages(sent) };
+    }
     async function attempt(count, includePlan, shrunk) {
         const slice = shrunk || messages.slice(total - count);
         const usedTitle = count === total ? title : `${title} (最近 ${count}/${total} 条)`;
+        const info = note(slice.length);
         console.warn(`[share-trim] try ${count}/${total} plan=${includePlan} shrunk=${shrunk ? 1 : 0}`);
         try {
             const result = await send(slice, usedTitle, includePlan);
-            console.warn(`[share-trim] accepted ${count}/${total} shareId=${result?.shareId ?? ""}`);
-            return result;
+            console.warn(`[share-trim] accepted ${count}/${total} shareId=${result?.shareId ?? ""} images=${countImages(slice)}`);
+            return tagged(result, info, slice);
         }
         catch (err) {
             const error = err;
@@ -186,18 +209,65 @@ async function shareWithinLimit(opts) {
             hi = mid;
         }
     }
+    async function appendDroppedImages(count) {
+        const dropped = messages.slice(0, total - count);
+        const extras = [];
+        for (const message of dropped) {
+            const images = message?.images;
+            if (Array.isArray(images)) {
+                extras.push(...images);
+            }
+        }
+        if (extras.length === 0) {
+            return null;
+        }
+        const slice = messages.slice(total - count).map((message) => {
+            const copy = { ...message };
+            if (Array.isArray(copy.images)) {
+                copy.images = copy.images.slice();
+            }
+            return copy;
+        });
+        let index = slice.length - 1;
+        for (let i = slice.length - 1; i >= 0; i -= 1) {
+            if (slice[i]?.type === 1) {
+                index = i;
+                break;
+            }
+        }
+        let keep = extras.slice();
+        while (keep.length > 0) {
+            const next = slice.map((message, i) => i === index ? { ...message, images: [...(message.images || []), ...keep] } : message);
+            const info = note(count);
+            try {
+                const result = await send(next, count === total ? title : `${title} (最近 ${count}/${total} 条)`, false);
+                console.warn(`[share-trim] kept ${keep.length} images from trimmed messages`);
+                return await remember(tagged(result, info, next));
+            }
+            catch (err) {
+                if (!shareTooBig(err)) {
+                    throw err;
+                }
+                keep = keep.slice(Math.ceil(keep.length / 2));
+            }
+        }
+        return null;
+    }
     if (best) {
-        console.warn(`[share-trim] shared ${lo}/${total}`);
-        return best;
+        const withImages = await appendDroppedImages(lo);
+        const chosen = withImages || best;
+        console.warn(`[share-trim] shared ${lo}/${total} images=${chosen.imageCount ?? 0}`);
+        return chosen;
     }
     let cap = 16000;
     const only = messages.slice(total - 1);
     while (cap >= 1000) {
         try {
             const shrunk = shrinkMessages(only, cap);
+            const info = note(1);
             const result = await send(shrunk, `${title} (最近 1/${total} 条，已截断)`, false);
-            console.warn(`[share-trim] shared 1/${total} truncated to ${cap}`);
-            return await remember(result);
+            console.warn(`[share-trim] shared 1/${total} truncated to ${cap} images=${countImages(shrunk)}`);
+            return await remember(tagged(result, info, shrunk));
         }
         catch (err) {
             lastErr = err;
@@ -206,6 +276,19 @@ async function shareWithinLimit(opts) {
             }
             cap = Math.floor(cap / 2);
         }
+    }
+    const stripped = shrinkMessages(only, 1000).map((message) => ({
+        ...message,
+        images: [],
+    }));
+    try {
+        const info = note(1);
+        const result = await send(stripped, `${title} (最近 1/${total} 条，已截断)`, false);
+        console.warn(`[share-trim] shared 1/${total} without images`);
+        return await remember(tagged(result, info, stripped));
+    }
+    catch (err) {
+        lastErr = err;
     }
     throw lastErr instanceof Error ? lastErr : new Error("Share exceeds content limits");
 }

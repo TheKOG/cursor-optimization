@@ -31,11 +31,38 @@ async function testKeepsLongestSuffix() {
     },
   });
   assert.strictEqual(result.shareId, created[created.length - 1].shareId);
+  assert.strictEqual(result.attempt, 4);
+  assert.strictEqual(result.messageCount, 30);
+  assert.strictEqual(result.messageTotal, 40);
   assert.strictEqual(created[created.length - 1].length, 30);
   assert.strictEqual(created[created.length - 1].includePlan, false);
   assert.ok(deleted.length >= 1);
   assert.ok(deleted.every((id) => id !== result.shareId));
   assert.ok(created.every((item) => item.includePlan === false));
+}
+
+async function testKeepsImagesFromTrimmedMessages() {
+  const messages = [
+    { type: 1, text: "old", images: ["shot"] },
+    { type: 1, text: "a" },
+    { type: 1, text: "b" },
+    { type: 1, text: "c" },
+    { type: 1, text: "d" },
+    { type: 1, text: "e" },
+  ];
+  const result = await shareWithinLimit({
+    messages,
+    title: "pics",
+    async send(slice) {
+      if (slice.length > 3) {
+        throw limitError();
+      }
+      const images = slice.reduce((sum, message) => sum + (message.images?.length || 0), 0);
+      return { shareId: `n${slice.length}-i${images}`, shareUrl: "u", redactions: 0 };
+    },
+  });
+  assert.strictEqual(result.shareId, "n3-i1");
+  assert.strictEqual(result.imageCount, 1);
 }
 
 async function testUnchangedWhenItFits() {
@@ -55,6 +82,9 @@ async function testUnchangedWhenItFits() {
   assert.strictEqual(calls, 1);
   assert.strictEqual(result.shareId, "full");
   assert.strictEqual(result.redactions, 1);
+  assert.strictEqual(result.attempt, 1);
+  assert.strictEqual(result.messageCount, 2);
+  assert.strictEqual(result.messageTotal, 2);
 }
 
 async function testTrimCanBeTurnedOff() {
@@ -118,7 +148,7 @@ function testShrinkDropsImagesAndBytes() {
     5
   );
   assert.strictEqual(message.text, "hello");
-  assert.deepStrictEqual(message.images, []);
+  assert.deepStrictEqual(message.images, ["x"]);
   assert.strictEqual(message.bytes.byteLength, 0);
   assert.ok(message.note.startsWith("abcd"));
   assert.ok(message.note.includes("[truncated]"));
@@ -159,6 +189,7 @@ function testPatchRoundTrip() {
 
 async function main() {
   await testKeepsLongestSuffix();
+  await testKeepsImagesFromTrimmedMessages();
   await testUnchangedWhenItFits();
   await testTrimCanBeTurnedOff();
   await testOtherErrorsPropagate();
