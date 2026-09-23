@@ -329,6 +329,13 @@ function testPatchRoundTrip() {
     "Share failed: You have reached the daily limit of shares. Please try again tomorrow."
   );
   delete globalThis.__cursorShareTrimLang;
+
+  const v32118From =
+    'function iv_(e){return e instanceof Error&&e.message==="No content to share"?"Failed to share transcript. Agent conversation is empty.":nv_(e)?"This chat is too large to share. Try sharing a shorter chat.":"Failed to share transcript. Try again later."}';
+  const v32118 = applyShareErrorPatch(`head ${v32118From} tail`);
+  assert.strictEqual(v32118.status, "inserted");
+  assert.ok(v32118.source.includes("function iv_(e){const __why="));
+  assert.ok(v32118.source.includes("nv_(e)?"));
 }
 
 function testCachePatch() {
@@ -365,6 +372,17 @@ function testCachePatch() {
   const registerStart = first.source.indexOf("var __ShareTrimCacheCommand");
   const registerEnd = first.source.indexOf("var EWh=class");
   new Function(first.source.slice(registerStart, registerEnd));
+
+  const v32118 = [
+    's?[Kd({id:I5t,label:"Share Transcript",enabled:!0,run:()=>c(I5t)})]:[],Kd({id:A5t,label:"Copy Request ID"',
+    "async forkSharedConversation(e,t){if(!UQe())",
+    "$e(fWh),$e(vWh),$e(bWh),$e(_Wh);var xWh=class",
+  ].join("\n");
+  const patched32118 = applyShareCachePatch(v32118);
+  assert.strictEqual(patched32118.status, "inserted");
+  assert.ok(patched32118.source.includes("$e(__ShareTrimForkCommand)"));
+  assert.ok(patched32118.source.includes("var xWh=class"));
+  assert.ok(!patched32118.source.includes("$e(fWh),$e(vWh),$e(bWh),$e(_Wh);var xWh=class"));
 }
 
 function testGlassCachePatch() {
@@ -383,6 +401,16 @@ function testGlassCachePatch() {
   const methodsStart = first.source.indexOf("async __shareTrimLang()");
   const methodsEnd = first.source.indexOf("async forkSharedConversation(t,e){if(!DOe())");
   new Function(`class __GlassCache {${first.source.slice(methodsStart, methodsEnd)}}`);
+
+  const v32118 = [
+    'tg({id:xbn,label:"Export Transcript",enabled:!0,run:()=>l(xbn)}),...s?[tg({id:s8t,label:"Share Transcript",enabled:!0,run:()=>l(s8t)})]:[],tg({id:Ibn,label:"Copy Request ID"',
+    "async forkSharedConversation(t,e){if(!DOe())",
+    '__decorate([zo(ppa)],l_v.prototype,"run",null),Lt(Qbv),Lt(Jbv),Lt(e_v),Lt(t_v);var c_v=class',
+  ].join("\n");
+  const patched32118 = applyGlassShareCachePatch(v32118);
+  assert.strictEqual(patched32118.status, "inserted");
+  assert.ok(patched32118.source.includes("Lt(__ShareTrimForkCommand)"));
+  assert.ok(patched32118.source.includes("var c_v=class"));
 }
 
 function testEditorTitleCachePatch() {

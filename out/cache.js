@@ -236,8 +236,8 @@ async function forkCache(id) {
         const message = error instanceof Error ? error.message : String(error);
         const hint = /not found/i.test(message)
             ? zh
-                ? "。请完全退出 Cursor 后再打开，让 Fork 命令装上。"
-                : ". Quit Cursor completely and reopen it so the fork command can load."
+                ? "。Fork 命令写在 Cursor 程序里，只装插件不够。请换 0.10.1 后完全退出 Cursor 再打开（不要只 Reload）。"
+                : ". The fork command lives in the Cursor app. Install 0.10.1, then fully quit Cursor and reopen (Reload is not enough)."
             : "";
         void vscode.window.showErrorMessage((zh ? "Fork 失败：" : "Fork failed: ") + message + hint);
     }

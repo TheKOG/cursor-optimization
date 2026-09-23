@@ -10,6 +10,8 @@ export const CACHE_FORK_FROM = "async forkSharedConversation(e,t){if(!UQe())";
 
 export const CACHE_REGISTER_FROM = "$e(gWh),$e(fWh),$e(vWh),$e(bWh);var EWh=class";
 
+export const CACHE_REGISTER_FROM_32118 = "$e(fWh),$e(vWh),$e(bWh),$e(_Wh);var xWh=class";
+
 export const GLASS_MENU_FROM =
   'tg({id:xbn,label:"Export Transcript",enabled:!0,run:()=>l(xbn)}),...s?[tg({id:s8t,label:"Share Transcript",enabled:!0,run:()=>l(s8t)})]:[],tg({id:Ibn,label:"Copy Request ID"';
 
@@ -21,11 +23,26 @@ export const GLASS_FORK_FROM = "async forkSharedConversation(t,e){if(!DOe())";
 export const GLASS_REGISTER_FROM =
   '__decorate([zo(ppa)],a_v.prototype,"run",null),Lt(Zbv),Lt(Qbv),Lt(Jbv),Lt(e_v);var l_v=class';
 
+export const GLASS_REGISTER_FROM_32118 =
+  '__decorate([zo(ppa)],l_v.prototype,"run",null),Lt(Qbv),Lt(Jbv),Lt(e_v),Lt(t_v);var c_v=class';
+
+const GLASS_REGISTER_COMMANDS =
+  'var __ShareTrimCacheCommand=class extends Qt{constructor(){super({id:"composer.cacheTranscript",title:{value:"Cache Transcript",original:"Cache Transcript"},f1:!1})}async run(t,e){const __n=t.get(Js),__ed=t.get(er).activeEditor;let __id=typeof e=="string"&&e?e:void 0;if(!__id&&__ed instanceof G1)__id=__ed.resource?.path;__id||(__id=__n.selectedComposerId);__id&&(__id=__n.resolveComposerIdToSelected(__id));if(!__id)return;await t.get(tp).cacheTranscript(__id)}};__decorate([zo("composer.cacheTranscript")],__ShareTrimCacheCommand.prototype,"run",null),Lt(__ShareTrimCacheCommand);var __ShareTrimForkCommand=class extends Qt{constructor(){super({id:"shareImageMirror.forkCache",title:{value:"Fork Cached Transcript",original:"Fork Cached Transcript"},f1:!1})}async run(t,e){if(typeof e!="string"||!e)return;await t.get(tp).forkCachedTranscript(e)}};__decorate([zo("shareImageMirror.forkCache")],__ShareTrimForkCommand.prototype,"run",null),Lt(__ShareTrimForkCommand);';
+
 export const GLASS_REGISTER_TO =
-  '__decorate([zo(ppa)],a_v.prototype,"run",null),Lt(Zbv),Lt(Qbv),Lt(Jbv),Lt(e_v);var __ShareTrimCacheCommand=class extends Qt{constructor(){super({id:"composer.cacheTranscript",title:{value:"Cache Transcript",original:"Cache Transcript"},f1:!1})}async run(t,e){const __n=t.get(Js),__ed=t.get(er).activeEditor;let __id=typeof e=="string"&&e?e:void 0;if(!__id&&__ed instanceof G1)__id=__ed.resource?.path;__id||(__id=__n.selectedComposerId);__id&&(__id=__n.resolveComposerIdToSelected(__id));if(!__id)return;await t.get(tp).cacheTranscript(__id)}};__decorate([zo("composer.cacheTranscript")],__ShareTrimCacheCommand.prototype,"run",null),Lt(__ShareTrimCacheCommand);var __ShareTrimForkCommand=class extends Qt{constructor(){super({id:"shareImageMirror.forkCache",title:{value:"Fork Cached Transcript",original:"Fork Cached Transcript"},f1:!1})}async run(t,e){if(typeof e!="string"||!e)return;await t.get(tp).forkCachedTranscript(e)}};__decorate([zo("shareImageMirror.forkCache")],__ShareTrimForkCommand.prototype,"run",null),Lt(__ShareTrimForkCommand);var l_v=class';
+  `__decorate([zo(ppa)],a_v.prototype,"run",null),Lt(Zbv),Lt(Qbv),Lt(Jbv),Lt(e_v);${GLASS_REGISTER_COMMANDS}var l_v=class`;
+
+export const GLASS_REGISTER_TO_32118 =
+  `__decorate([zo(ppa)],l_v.prototype,"run",null),Lt(Qbv),Lt(Jbv),Lt(e_v),Lt(t_v);${GLASS_REGISTER_COMMANDS}var c_v=class`;
+
+const CACHE_REGISTER_COMMANDS =
+  'var __ShareTrimCacheCommand=class extends ct{constructor(){super({id:"composer.cacheTranscript",title:{value:"Cache Transcript",original:"Cache Transcript"},f1:!1})}async run(e,t){const __n=e.get(zs),__ed=e.get(sn).activeEditor;let __id=typeof t=="string"&&t?t:void 0;if(!__id&&__ed instanceof Ly)__id=__ed.resource?.path;__id||(__id=__n.selectedComposerId);__id&&(__id=__n.resolveComposerIdToSelected(__id));if(!__id)return;await e.get(zh).cacheTranscript(__id)}};__decorate([Ns("composer.cacheTranscript")],__ShareTrimCacheCommand.prototype,"run",null);var __ShareTrimForkCommand=class extends ct{constructor(){super({id:"shareImageMirror.forkCache",title:{value:"Fork Cached Transcript",original:"Fork Cached Transcript"},f1:!1})}async run(e,t){if(typeof t!="string"||!t)return;await e.get(zh).forkCachedTranscript(t)}};__decorate([Ns("shareImageMirror.forkCache")],__ShareTrimForkCommand.prototype,"run",null),$e(__ShareTrimCacheCommand),$e(__ShareTrimForkCommand);';
 
 export const CACHE_REGISTER_TO =
-  '$e(gWh),$e(fWh),$e(vWh),$e(bWh);var __ShareTrimCacheCommand=class extends ct{constructor(){super({id:"composer.cacheTranscript",title:{value:"Cache Transcript",original:"Cache Transcript"},f1:!1})}async run(e,t){const __n=e.get(zs),__ed=e.get(sn).activeEditor;let __id=typeof t=="string"&&t?t:void 0;if(!__id&&__ed instanceof Ly)__id=__ed.resource?.path;__id||(__id=__n.selectedComposerId);__id&&(__id=__n.resolveComposerIdToSelected(__id));if(!__id)return;await e.get(zh).cacheTranscript(__id)}};__decorate([Ns("composer.cacheTranscript")],__ShareTrimCacheCommand.prototype,"run",null);var __ShareTrimForkCommand=class extends ct{constructor(){super({id:"shareImageMirror.forkCache",title:{value:"Fork Cached Transcript",original:"Fork Cached Transcript"},f1:!1})}async run(e,t){if(typeof t!="string"||!t)return;await e.get(zh).forkCachedTranscript(t)}};__decorate([Ns("shareImageMirror.forkCache")],__ShareTrimForkCommand.prototype,"run",null),$e(__ShareTrimCacheCommand),$e(__ShareTrimForkCommand);var EWh=class';
+  `$e(gWh),$e(fWh),$e(vWh),$e(bWh);${CACHE_REGISTER_COMMANDS}var EWh=class`;
+
+export const CACHE_REGISTER_TO_32118 =
+  `$e(fWh),$e(vWh),$e(bWh),$e(_Wh);${CACHE_REGISTER_COMMANDS}var xWh=class`;
 
 export const CACHE_READ_BYTES_OLD =
   'const __readBytes=async imagePath=>{const attempts=[we.file(imagePath)];if(root.scheme!=="file"&&imagePath.charAt(0)==="/")attempts.push(root.with({path:imagePath}));let last;for(const uri of attempts){try{const result=await this.composerFileService.readFile({uri,composerData:void 0});const raw=result.value.buffer;return raw instanceof Uint8Array?raw:new Uint8Array(raw)}catch(err){last=err}}throw last};';

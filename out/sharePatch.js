@@ -13,8 +13,10 @@ const cacheWorkbench_1 = require("./cacheWorkbench");
 const shareTrim_1 = require("./shareTrim");
 exports.SHARE_TRIM_MARKER = "/*share-trim-1*/";
 exports.SHARE_ERROR_MARKER = "/*share-error-1*/";
-const SHARE_ERROR_FROM = 'function nv_(e){return e instanceof Error&&e.message==="No content to share"?"Failed to share transcript. Agent conversation is empty.":tv_(e)?"This chat is too large to share. Try sharing a shorter chat.":"Failed to share transcript. Try again later."}';
-const SHARE_ERROR_TO = 'function nv_(e){const __why=e&&String(e.rawMessage||e.message||"").replace(/\\s+/g," ").trim();const __prefix=globalThis.__cursorShareTrimLang==="en"?"Share failed: ":"分享失败：";return e instanceof Error&&e.message==="No content to share"?"Failed to share transcript. Agent conversation is empty.":tv_(e)?"This chat is too large to share. Try sharing a shorter chat.":__why?__prefix+__why:"Failed to share transcript. Try again later."}';
+const SHARE_ERROR_BODY = /function (\w+)\(e\)\{return e instanceof Error&&e\.message==="No content to share"\?"Failed to share transcript\. Agent conversation is empty\.":(\w+)\(e\)\?"This chat is too large to share\. Try sharing a shorter chat\.":"Failed to share transcript\. Try again later\."\}/;
+function shareErrorReplacement(name, tooBig) {
+    return `function ${name}(e){const __why=e&&String(e.rawMessage||e.message||"").replace(/\\s+/g," ").trim();const __prefix=globalThis.__cursorShareTrimLang==="en"?"Share failed: ":"分享失败：";return e instanceof Error&&e.message==="No content to share"?"Failed to share transcript. Agent conversation is empty.":${tooBig}(e)?"This chat is too large to share. Try sharing a shorter chat.":__why?__prefix+__why:"Failed to share transcript. Try again later."}`;
+}
 const SHARE_ANCHOR = "async shareConversation(e,t,n){if(!UQe())";
 const SHARE_SEND = "c=await o.shareConversation(new IWs({conversationId:e.data.composerId,title:t,visibility:n,messages:s,latestPlan:a}));return{shareId:c.shareId,shareUrl:c.shareUrl,redactions:c.redactions||0}";
 const SHARE_SEND_PATCHED = "c=await globalThis.__cursorShareTrimV1({messages:s,title:t,send:(msgs,title,includePlan)=>o.shareConversation(new IWs({conversationId:e.data.composerId,title:title,visibility:n,messages:msgs,latestPlan:includePlan?a:void 0})),deleteShare:(id)=>this.deleteSharedConversation(id)});return{shareId:c.shareId,shareUrl:c.shareUrl,redactions:c.redactions||0}";
@@ -44,22 +46,30 @@ function applyShareTrimPatch(source) {
     return { source: patched, status: "inserted" };
 }
 function applyShareErrorPatch(source) {
-    const upgraded = `${SHARE_ERROR_TO}${exports.SHARE_ERROR_MARKER}`;
-    if (source.includes(upgraded)) {
+    if (source.includes(exports.SHARE_ERROR_MARKER) && source.includes("__prefix+__why")) {
         return { source, status: "already" };
     }
-    const start = source.indexOf("function nv_(e)");
+    const start = source.search(/function \w+\(e\)\{const __why=/);
     const end = source.indexOf(exports.SHARE_ERROR_MARKER, start);
     if (start >= 0 && end > start) {
-        return {
-            source: source.slice(0, start) + upgraded + source.slice(end + exports.SHARE_ERROR_MARKER.length),
-            status: "inserted",
-        };
+        const named = source.slice(start).match(/^function (\w+)\(e\)\{/);
+        const tooBig = source.slice(start, end).match(/:(\w+)\(e\)\?"This chat is too large/);
+        if (named && tooBig) {
+            const upgraded = `${shareErrorReplacement(named[1], tooBig[1])}${exports.SHARE_ERROR_MARKER}`;
+            return {
+                source: source.slice(0, start) + upgraded + source.slice(end + exports.SHARE_ERROR_MARKER.length),
+                status: "inserted",
+            };
+        }
     }
-    if (countOf(source, SHARE_ERROR_FROM) !== 1) {
+    const match = source.match(SHARE_ERROR_BODY);
+    if (!match || countOf(source, match[0]) !== 1) {
         return { source, status: "missing-anchor" };
     }
-    return { source: source.replace(SHARE_ERROR_FROM, upgraded), status: "inserted" };
+    return {
+        source: source.replace(match[0], `${shareErrorReplacement(match[1], match[2])}${exports.SHARE_ERROR_MARKER}`),
+        status: "inserted",
+    };
 }
 function applyImagePathPatch(source) {
     if (source.includes(exports.IMAGE_PATH_MARKER) || source.includes("const __p=typeof e.path===\"string\"&&/^[\\\\/]root[\\\\/]/.test(e.path)")) {
@@ -88,18 +98,23 @@ function applyShareCachePatch(source) {
         const upgraded = upgradeCacheReadBytes(source);
         return { source: upgraded.source, status: upgraded.changed ? "inserted" : "already" };
     }
-    if (countOf(source, cacheWorkbench_1.CACHE_MENU_FROM) !== 1 ||
-        countOf(source, cacheWorkbench_1.CACHE_FORK_FROM) !== 1 ||
-        countOf(source, cacheWorkbench_1.CACHE_REGISTER_FROM) !== 1) {
+    if (countOf(source, cacheWorkbench_1.CACHE_MENU_FROM) !== 1 || countOf(source, cacheWorkbench_1.CACHE_FORK_FROM) !== 1) {
+        return { source, status: "missing-anchor" };
+    }
+    const register = pickRegister(source, [
+        [cacheWorkbench_1.CACHE_REGISTER_FROM, cacheWorkbench_1.CACHE_REGISTER_TO],
+        [cacheWorkbench_1.CACHE_REGISTER_FROM_32118, cacheWorkbench_1.CACHE_REGISTER_TO_32118],
+    ]);
+    if (!register) {
         return { source, status: "missing-anchor" };
     }
     const patched = source
         .replace(cacheWorkbench_1.CACHE_MENU_FROM, cacheWorkbench_1.CACHE_MENU_TO)
         .replace(cacheWorkbench_1.CACHE_FORK_FROM, `${cacheWorkbench_1.CACHE_METHODS}${cacheWorkbench_1.CACHE_FORK_FROM}`)
-        .replace(cacheWorkbench_1.CACHE_REGISTER_FROM, cacheWorkbench_1.CACHE_REGISTER_TO);
+        .replace(register.from, register.to);
     if (!patched.includes(cacheWorkbench_1.SHARE_CACHE_MARKER) ||
         patched.includes(cacheWorkbench_1.CACHE_MENU_FROM) ||
-        patched.includes(cacheWorkbench_1.CACHE_REGISTER_FROM) ||
+        patched.includes(register.from) ||
         countOf(patched, "async cacheTranscript(") !== 1 ||
         countOf(patched, "async forkCachedTranscript(") !== 1) {
         return { source, status: "missing-anchor" };
@@ -121,9 +136,14 @@ function applyGlassShareCachePatch(source) {
         const upgraded = upgradeCacheReadBytes(source);
         return { source: upgraded.source, status: upgraded.changed ? "inserted" : "already" };
     }
-    if (countOf(source, cacheWorkbench_1.GLASS_MENU_FROM) !== 1 ||
-        countOf(source, cacheWorkbench_1.GLASS_FORK_FROM) !== 1 ||
-        countOf(source, cacheWorkbench_1.GLASS_REGISTER_FROM) !== 1) {
+    if (countOf(source, cacheWorkbench_1.GLASS_MENU_FROM) !== 1 || countOf(source, cacheWorkbench_1.GLASS_FORK_FROM) !== 1) {
+        return { source, status: "missing-anchor" };
+    }
+    const register = pickRegister(source, [
+        [cacheWorkbench_1.GLASS_REGISTER_FROM, cacheWorkbench_1.GLASS_REGISTER_TO],
+        [cacheWorkbench_1.GLASS_REGISTER_FROM_32118, cacheWorkbench_1.GLASS_REGISTER_TO_32118],
+    ]);
+    if (!register) {
         return { source, status: "missing-anchor" };
     }
     const methods = glassCacheMethods();
@@ -133,10 +153,10 @@ function applyGlassShareCachePatch(source) {
     const patched = source
         .replace(cacheWorkbench_1.GLASS_MENU_FROM, cacheWorkbench_1.GLASS_MENU_TO)
         .replace(cacheWorkbench_1.GLASS_FORK_FROM, `${methods}${cacheWorkbench_1.GLASS_FORK_FROM}`)
-        .replace(cacheWorkbench_1.GLASS_REGISTER_FROM, cacheWorkbench_1.GLASS_REGISTER_TO);
+        .replace(register.from, register.to);
     if (!patched.includes(cacheWorkbench_1.SHARE_CACHE_MARKER) ||
         patched.includes(cacheWorkbench_1.GLASS_MENU_FROM) ||
-        patched.includes(cacheWorkbench_1.GLASS_REGISTER_FROM) ||
+        patched.includes(register.from) ||
         countOf(patched, "async cacheTranscript(") !== 1) {
         return { source, status: "missing-anchor" };
     }
@@ -165,6 +185,11 @@ function applyEditorTitleCachePatch(source) {
             : { source, status: "missing-anchor" };
     }
     return { source, status: "missing-anchor" };
+}
+function pickRegister(source, pairs) {
+    return pairs
+        .filter(([from]) => countOf(source, from) === 1)
+        .map(([from, to]) => ({ from, to }))[0];
 }
 function countOf(source, needle) {
     let count = 0;

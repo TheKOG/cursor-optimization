@@ -6,12 +6,16 @@ import {
   CACHE_READ_BYTES,
   CACHE_READ_BYTES_OLD,
   CACHE_REGISTER_FROM,
+  CACHE_REGISTER_FROM_32118,
   CACHE_REGISTER_TO,
+  CACHE_REGISTER_TO_32118,
   GLASS_FORK_FROM,
   GLASS_MENU_FROM,
   GLASS_MENU_TO,
   GLASS_REGISTER_FROM,
+  GLASS_REGISTER_FROM_32118,
   GLASS_REGISTER_TO,
+  GLASS_REGISTER_TO_32118,
   SHARE_CACHE_MARKER,
 } from "./cacheWorkbench";
 import { clampAttempt, shareTooBig, shareWithinLimit, shrinkMessages } from "./shareTrim";
@@ -19,11 +23,12 @@ import { clampAttempt, shareTooBig, shareWithinLimit, shrinkMessages } from "./s
 export const SHARE_TRIM_MARKER = "/*share-trim-1*/";
 export const SHARE_ERROR_MARKER = "/*share-error-1*/";
 
-const SHARE_ERROR_FROM =
-  'function nv_(e){return e instanceof Error&&e.message==="No content to share"?"Failed to share transcript. Agent conversation is empty.":tv_(e)?"This chat is too large to share. Try sharing a shorter chat.":"Failed to share transcript. Try again later."}';
+const SHARE_ERROR_BODY =
+  /function (\w+)\(e\)\{return e instanceof Error&&e\.message==="No content to share"\?"Failed to share transcript\. Agent conversation is empty\.":(\w+)\(e\)\?"This chat is too large to share\. Try sharing a shorter chat\.":"Failed to share transcript\. Try again later\."\}/;
 
-const SHARE_ERROR_TO =
-  'function nv_(e){const __why=e&&String(e.rawMessage||e.message||"").replace(/\\s+/g," ").trim();const __prefix=globalThis.__cursorShareTrimLang==="en"?"Share failed: ":"分享失败：";return e instanceof Error&&e.message==="No content to share"?"Failed to share transcript. Agent conversation is empty.":tv_(e)?"This chat is too large to share. Try sharing a shorter chat.":__why?__prefix+__why:"Failed to share transcript. Try again later."}';
+function shareErrorReplacement(name: string, tooBig: string): string {
+  return `function ${name}(e){const __why=e&&String(e.rawMessage||e.message||"").replace(/\\s+/g," ").trim();const __prefix=globalThis.__cursorShareTrimLang==="en"?"Share failed: ":"分享失败：";return e instanceof Error&&e.message==="No content to share"?"Failed to share transcript. Agent conversation is empty.":${tooBig}(e)?"This chat is too large to share. Try sharing a shorter chat.":__why?__prefix+__why:"Failed to share transcript. Try again later."}`;
+}
 
 const SHARE_ANCHOR = "async shareConversation(e,t,n){if(!UQe())";
 
@@ -70,22 +75,30 @@ export function applyShareTrimPatch(source: string): { source: string; status: P
 }
 
 export function applyShareErrorPatch(source: string): { source: string; status: PatchStatus } {
-  const upgraded = `${SHARE_ERROR_TO}${SHARE_ERROR_MARKER}`;
-  if (source.includes(upgraded)) {
+  if (source.includes(SHARE_ERROR_MARKER) && source.includes("__prefix+__why")) {
     return { source, status: "already" };
   }
-  const start = source.indexOf("function nv_(e)");
+  const start = source.search(/function \w+\(e\)\{const __why=/);
   const end = source.indexOf(SHARE_ERROR_MARKER, start);
   if (start >= 0 && end > start) {
-    return {
-      source: source.slice(0, start) + upgraded + source.slice(end + SHARE_ERROR_MARKER.length),
-      status: "inserted",
-    };
+    const named = source.slice(start).match(/^function (\w+)\(e\)\{/);
+    const tooBig = source.slice(start, end).match(/:(\w+)\(e\)\?"This chat is too large/);
+    if (named && tooBig) {
+      const upgraded = `${shareErrorReplacement(named[1], tooBig[1])}${SHARE_ERROR_MARKER}`;
+      return {
+        source: source.slice(0, start) + upgraded + source.slice(end + SHARE_ERROR_MARKER.length),
+        status: "inserted",
+      };
+    }
   }
-  if (countOf(source, SHARE_ERROR_FROM) !== 1) {
+  const match = source.match(SHARE_ERROR_BODY);
+  if (!match || countOf(source, match[0]) !== 1) {
     return { source, status: "missing-anchor" };
   }
-  return { source: source.replace(SHARE_ERROR_FROM, upgraded), status: "inserted" };
+  return {
+    source: source.replace(match[0], `${shareErrorReplacement(match[1], match[2])}${SHARE_ERROR_MARKER}`),
+    status: "inserted",
+  };
 }
 
 export function applyImagePathPatch(source: string): { source: string; status: PatchStatus } {
@@ -117,21 +130,24 @@ export function applyShareCachePatch(source: string): { source: string; status: 
     const upgraded = upgradeCacheReadBytes(source);
     return { source: upgraded.source, status: upgraded.changed ? "inserted" : "already" };
   }
-  if (
-    countOf(source, CACHE_MENU_FROM) !== 1 ||
-    countOf(source, CACHE_FORK_FROM) !== 1 ||
-    countOf(source, CACHE_REGISTER_FROM) !== 1
-  ) {
+  if (countOf(source, CACHE_MENU_FROM) !== 1 || countOf(source, CACHE_FORK_FROM) !== 1) {
+    return { source, status: "missing-anchor" };
+  }
+  const register = pickRegister(source, [
+    [CACHE_REGISTER_FROM, CACHE_REGISTER_TO],
+    [CACHE_REGISTER_FROM_32118, CACHE_REGISTER_TO_32118],
+  ]);
+  if (!register) {
     return { source, status: "missing-anchor" };
   }
   const patched = source
     .replace(CACHE_MENU_FROM, CACHE_MENU_TO)
     .replace(CACHE_FORK_FROM, `${CACHE_METHODS}${CACHE_FORK_FROM}`)
-    .replace(CACHE_REGISTER_FROM, CACHE_REGISTER_TO);
+    .replace(register.from, register.to);
   if (
     !patched.includes(SHARE_CACHE_MARKER) ||
     patched.includes(CACHE_MENU_FROM) ||
-    patched.includes(CACHE_REGISTER_FROM) ||
+    patched.includes(register.from) ||
     countOf(patched, "async cacheTranscript(") !== 1 ||
     countOf(patched, "async forkCachedTranscript(") !== 1
   ) {
@@ -156,11 +172,14 @@ export function applyGlassShareCachePatch(source: string): { source: string; sta
     const upgraded = upgradeCacheReadBytes(source);
     return { source: upgraded.source, status: upgraded.changed ? "inserted" : "already" };
   }
-  if (
-    countOf(source, GLASS_MENU_FROM) !== 1 ||
-    countOf(source, GLASS_FORK_FROM) !== 1 ||
-    countOf(source, GLASS_REGISTER_FROM) !== 1
-  ) {
+  if (countOf(source, GLASS_MENU_FROM) !== 1 || countOf(source, GLASS_FORK_FROM) !== 1) {
+    return { source, status: "missing-anchor" };
+  }
+  const register = pickRegister(source, [
+    [GLASS_REGISTER_FROM, GLASS_REGISTER_TO],
+    [GLASS_REGISTER_FROM_32118, GLASS_REGISTER_TO_32118],
+  ]);
+  if (!register) {
     return { source, status: "missing-anchor" };
   }
   const methods = glassCacheMethods();
@@ -170,11 +189,11 @@ export function applyGlassShareCachePatch(source: string): { source: string; sta
   const patched = source
     .replace(GLASS_MENU_FROM, GLASS_MENU_TO)
     .replace(GLASS_FORK_FROM, `${methods}${GLASS_FORK_FROM}`)
-    .replace(GLASS_REGISTER_FROM, GLASS_REGISTER_TO);
+    .replace(register.from, register.to);
   if (
     !patched.includes(SHARE_CACHE_MARKER) ||
     patched.includes(GLASS_MENU_FROM) ||
-    patched.includes(GLASS_REGISTER_FROM) ||
+    patched.includes(register.from) ||
     countOf(patched, "async cacheTranscript(") !== 1
   ) {
     return { source, status: "missing-anchor" };
@@ -219,6 +238,12 @@ export function applyEditorTitleCachePatch(source: string): { source: string; st
       : { source, status: "missing-anchor" };
   }
   return { source, status: "missing-anchor" };
+}
+
+function pickRegister(source: string, pairs: Array<[string, string]>): { from: string; to: string } | undefined {
+  return pairs
+    .filter(([from]) => countOf(source, from) === 1)
+    .map(([from, to]) => ({ from, to }))[0];
 }
 
 function countOf(source: string, needle: string): number {
