@@ -65,19 +65,19 @@ This extension runs on the Windows machine (`extensionKind: ui`). Its activity-b
 
 The server rejects an oversized share. The real reason is `Share exceeds content limits`. The UI only says the chat is too large.
 
-With **长度裁剪** on, **带上计划** decides whether every round includes the plan. The search then binary-searches for the longest recent portion the server accepts: send the full chat, halve it when that is rejected, then try a longer length between the last success and the last failure. Shorter links created along the way are deleted. Turn length trimming off to let an oversized share fail unchanged.
+With **Trim length** on, **Include plan** decides whether every round includes the plan. The search then binary-searches for the longest recent portion the server accepts: send the full chat, halve it when that is rejected, then try a longer length between the last success and the last failure. Shorter links created along the way are deleted. Turn length trimming off to let an oversized share fail unchanged.
 
-**带上计划** on means every round includes the plan. Off means no round includes it.
+**Include plan** on means every round includes the plan. Off means no round includes it.
 
-**最小尝试轮数** defaults to 3. Once that many rounds have run, one success is enough: keep the longest successful portion and stop. Set it to 1 to stop at the first success.
+**Minimum attempts** defaults to 3. Once that many rounds have run, one success is enough: keep the longest successful portion and stop. Set it to 1 to stop at the first success.
 
-**最大尝试轮数** defaults to 16. Reaching it stops the search even when nothing has succeeded.
+**Maximum attempts** defaults to 16. Reaching it stops the search even when nothing has succeeded.
 
 ### 2. Sharing again shows the previous link
 
 A share is a snapshot. Once the chat has a link, **Share Transcript** does not upload again. It opens the previous link. Messages added later never appear there.
 
-With **重新生成链接** on, each share creates a link from the current chat and deletes the older links for that chat. Turn it off to keep Cursor's original behavior.
+With **Regenerate link** on, each share creates a link from the current chat and deletes the older links for that chat. Turn it off to keep Cursor's original behavior.
 
 ### 3. A cache you can fork locally
 
