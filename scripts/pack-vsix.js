@@ -23,9 +23,9 @@ fs.writeFileSync(
   `<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
   <Metadata>
-    <Identity Language="en-US" Id="cursor-share-image-mirror" Version="0.0.3" Publisher="local"/>
-    <DisplayName>Cursor Share Image Mirror</DisplayName>
-    <Description>Mirror remote chat images and trim oversized shares.</Description>
+    <Identity Language="en-US" Id="cursor-share-image-mirror" Version="0.0.4" Publisher="local"/>
+    <DisplayName>Cursor Optimization</DisplayName>
+    <Description>Trim oversized shares and cache a full transcript for a local fork.</Description>
   </Metadata>
   <Installation>
     <InstallationTarget Id="Microsoft.VisualStudio.Code"/>
@@ -51,7 +51,7 @@ fs.writeFileSync(
 `
 );
 
-const vsix = path.join(src, "cursor-share-image-mirror-0.0.3.vsix");
+const vsix = path.join(src, "cursor-optimization-0.0.4.vsix");
 fs.rmSync(vsix, { force: true });
 const stagePs = stage.replace(/'/g, "''");
 const vsixPs = vsix.replace(/'/g, "''");

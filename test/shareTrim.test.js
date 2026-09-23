@@ -2,7 +2,7 @@
 
 const assert = require("assert");
 const { shareTooBig, shareWithinLimit, shrinkMessages } = require("../out/shareTrim");
-const { applyImagePathPatch, applyShareTrimPatch, buildShareTrimRuntime, SHARE_TRIM_MARKER } = require("../out/sharePatch");
+const { applyEditorTitleCachePatch, applyGlassShareCachePatch, applyImagePathPatch, applyShareCachePatch, applyShareErrorPatch, applyShareTrimPatch, buildShareTrimRuntime, SHARE_ERROR_MARKER, SHARE_TRIM_MARKER } = require("../out/sharePatch");
 
 function limitError() {
   const err = new Error("Error");
@@ -304,6 +304,94 @@ function testPatchRoundTrip() {
   assert.strictEqual(image.status, "inserted");
   assert.ok(image.source.includes('we.file(__p)'));
   assert.strictEqual(applyImagePathPatch(image.source).status, "already");
+
+  const errorFrom =
+    'function nv_(e){return e instanceof Error&&e.message==="No content to share"?"Failed to share transcript. Agent conversation is empty.":tv_(e)?"This chat is too large to share. Try sharing a shorter chat.":"Failed to share transcript. Try again later."}';
+  const errorPatch = applyShareErrorPatch(`head ${errorFrom} tail`);
+  assert.strictEqual(errorPatch.status, "inserted");
+  assert.ok(errorPatch.source.includes(SHARE_ERROR_MARKER));
+  assert.ok(errorPatch.source.includes("__prefix+__why"));
+  assert.strictEqual(applyShareErrorPatch(errorPatch.source).status, "already");
+  const showReason = new Function(
+    "e",
+    "function tv_(){return false;}" +
+      errorPatch.source.slice(errorPatch.source.indexOf("function nv_"), errorPatch.source.indexOf(SHARE_ERROR_MARKER)) +
+      "return nv_(e);"
+  );
+  assert.strictEqual(
+    showReason({ rawMessage: "You have reached the daily limit of shares. Please try again tomorrow.", message: "[unauthenticated] limit" }),
+    "分享失败：You have reached the daily limit of shares. Please try again tomorrow."
+  );
+  globalThis.__cursorShareTrimLang = "en";
+  assert.strictEqual(
+    showReason({ rawMessage: "You have reached the daily limit of shares. Please try again tomorrow." }),
+    "Share failed: You have reached the daily limit of shares. Please try again tomorrow."
+  );
+  delete globalThis.__cursorShareTrimLang;
+}
+
+function testCachePatch() {
+  const source = [
+    's?[Kd({id:I5t,label:"Share Transcript",enabled:!0,run:()=>c(I5t)})]:[],Kd({id:A5t,label:"Copy Request ID"',
+    "async forkSharedConversation(e,t){if(!UQe())",
+    "$e(gWh),$e(fWh),$e(vWh),$e(bWh);var EWh=class",
+  ].join("\n");
+  const first = applyShareCachePatch(source);
+  assert.strictEqual(first.status, "inserted");
+  assert.ok(first.source.includes("/*share-cache-1*/"));
+  assert.ok(first.source.includes('label:"Cache Transcript ("+__n+")"'));
+  assert.ok(first.source.includes('__n="Cursor Optimization"'));
+  assert.ok(first.source.includes('label:"Cache Transcript ("+__n+")"'));
+  assert.ok(first.source.includes("shareImageMirror.forkCache"));
+  assert.ok(first.source.includes("$e(__ShareTrimCacheCommand)"));
+  assert.ok(first.source.includes("$e(__ShareTrimForkCommand)"));
+  assert.ok(first.source.includes("context.selectedImages"));
+  assert.strictEqual(applyShareCachePatch(first.source).status, "already");
+  assert.strictEqual(applyShareCachePatch("nope").status, "missing-anchor");
+  const methodsStart = first.source.indexOf("async __shareTrimLang()");
+  const methodsEnd = first.source.indexOf("async forkSharedConversation(e,t){if(!UQe())");
+  new Function(`class __CacheCheck {${first.source.slice(methodsStart, methodsEnd)}}`);
+  const menuStart = first.source.indexOf("(()=>{let __n=");
+  const menuEnd = first.source.indexOf(',Kd({id:A5t,label:"Copy Request ID"');
+  new Function(`return ${first.source.slice(menuStart, menuEnd)};`);
+  const registerStart = first.source.indexOf("var __ShareTrimCacheCommand");
+  const registerEnd = first.source.indexOf("var EWh=class");
+  new Function(first.source.slice(registerStart, registerEnd));
+}
+
+function testGlassCachePatch() {
+  const source = [
+    'tg({id:xbn,label:"Export Transcript",enabled:!0,run:()=>l(xbn)}),...s?[tg({id:s8t,label:"Share Transcript",enabled:!0,run:()=>l(s8t)})]:[],tg({id:Ibn,label:"Copy Request ID"',
+    "async forkSharedConversation(t,e){if(!DOe())",
+    '__decorate([zo(ppa)],a_v.prototype,"run",null),Lt(Zbv),Lt(Qbv),Lt(Jbv),Lt(e_v);var l_v=class',
+  ].join("\n");
+  const first = applyGlassShareCachePatch(source);
+  assert.strictEqual(first.status, "inserted");
+  assert.ok(first.source.includes("Cache Transcript ("));
+  assert.ok(first.source.includes("Ze.joinPath"));
+  assert.ok(!first.source.includes("we.joinPath"));
+  assert.ok(first.source.includes("t.get(tp).forkCachedTranscript"));
+  assert.strictEqual(applyGlassShareCachePatch(first.source).status, "already");
+  const methodsStart = first.source.indexOf("async __shareTrimLang()");
+  const methodsEnd = first.source.indexOf("async forkSharedConversation(t,e){if(!DOe())");
+  new Function(`class __GlassCache {${first.source.slice(methodsStart, methodsEnd)}}`);
+}
+
+function testEditorTitleCachePatch() {
+  const desktop =
+    '{command:{id:I5t,title:"Share Transcript",icon:Re.link},group:"1_chatTools",order:2,when:ce.and(nu.Scheme.isEqualTo(dt.composer),uHt)},{command:{id:WMs,title:"Copy Request ID"},group:"1_chatTools",order:3,when:nu.Scheme.isEqualTo(dt.composer)}';
+  const glass =
+    '{command:{id:s8t,title:"Share Transcript",icon:vt.link},group:"1_chatTools",order:2,when:ut.and(hh.Scheme.isEqualTo(Pt.composer),I7t)},{command:{id:mpa,title:"Copy Request ID"},group:"1_chatTools",order:3,when:hh.Scheme.isEqualTo(Pt.composer)}';
+  const desktopPatch = applyEditorTitleCachePatch(desktop);
+  assert.strictEqual(desktopPatch.status, "inserted");
+  assert.ok(desktopPatch.source.includes('id:"composer.cacheTranscript"'));
+  assert.ok(desktopPatch.source.includes("order:2.5"));
+  new Function(`return [${desktopPatch.source}];`);
+  assert.strictEqual(applyEditorTitleCachePatch(desktopPatch.source).status, "already");
+  const glassPatch = applyEditorTitleCachePatch(glass);
+  assert.strictEqual(glassPatch.status, "inserted");
+  new Function(`return [${glassPatch.source}];`);
+  assert.strictEqual(applyEditorTitleCachePatch("nope").status, "missing-anchor");
 }
 
 async function main() {
@@ -321,6 +409,9 @@ async function main() {
   testShrinkDropsImagesAndBytes();
   testTooBigDetector();
   testPatchRoundTrip();
+  testCachePatch();
+  testGlassCachePatch();
+  testEditorTitleCachePatch();
   console.log("share trim tests passed");
 }
 

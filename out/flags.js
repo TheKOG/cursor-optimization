@@ -63,6 +63,7 @@ function readFlags() {
         regenerateLink: config.get("regenerateLink") !== false,
         minAttempts,
         maxAttempts,
+        language: config.get("language") === "en" ? "en" : "zh",
     };
 }
 async function writeFlags(flags = readFlags()) {

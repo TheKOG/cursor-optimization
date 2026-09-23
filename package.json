@@ -1,8 +1,8 @@
 {
   "name": "cursor-share-image-mirror",
-  "displayName": "Cursor Share Trim",
-  "description": "分享超限时裁到服务器还能接受的长度，并可以按当前会话重新生成链接。",
-  "version": "0.0.8",
+  "displayName": "Cursor Optimization",
+  "description": "分享超限时裁到服务器还能接受的长度，并可以把整段会话连图片缓存到工作区后再 Fork 回本地。",
+  "version": "0.0.4",
   "publisher": "local",
   "license": "MIT",
   "engines": {
@@ -24,7 +24,7 @@
     "virtualWorkspaces": false,
     "untrustedWorkspaces": {
       "supported": true,
-      "description": "只在本机写入分享开关，不读取工作区文件。"
+      "description": "在本机写入分享开关，并读写当前工作区里的会话缓存。"
     }
   },
   "contributes": {
@@ -32,14 +32,14 @@
       {
         "command": "shareImageMirror.trimAndShare",
         "title": "Trim conversation to the share limit and share",
-        "category": "Share Trim"
+        "category": "Cursor Optimization"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "shareImageMirror",
-          "title": "分享裁剪",
+          "title": "Cursor Optimization",
           "icon": "media/panel.svg"
         }
       ]
@@ -54,7 +54,7 @@
       ]
     },
     "configuration": {
-      "title": "Share Trim",
+      "title": "Cursor Optimization",
       "properties": {
         "shareImageMirror.trimEnabled": {
           "type": "boolean",
@@ -77,6 +77,13 @@
           "minimum": 1,
           "maximum": 50,
           "markdownDescription": "到这个轮数以后，只要成功过一次，就留下其中最长的一段并停止。默认 3。设成 1 时，第一次成功就停。"
+        },
+        "shareImageMirror.language": {
+          "type": "string",
+          "enum": ["zh", "en"],
+          "enumDescriptions": ["中文", "English"],
+          "default": "zh",
+          "markdownDescription": "控制面板和分享提示的语言。默认中文。"
         },
         "shareImageMirror.maxAttempts": {
           "type": "number",

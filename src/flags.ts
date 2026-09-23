@@ -9,6 +9,7 @@ export interface ShareTrimFlags {
   regenerateLink: boolean;
   minAttempts: number;
   maxAttempts: number;
+  language: "zh" | "en";
 }
 
 export function flagsPath(): string {
@@ -36,6 +37,7 @@ export function readFlags(): ShareTrimFlags {
     regenerateLink: config.get<boolean>("regenerateLink") !== false,
     minAttempts,
     maxAttempts,
+    language: config.get<string>("language") === "en" ? "en" : "zh",
   };
 }
 

@@ -1,6 +1,6 @@
-# Cursor Share Trim
+# Cursor Optimization
 
-这个扩展跑在 Windows 本机（`extensionKind: ui`）。活动栏图标是 **分享裁剪**。面板上的开关在下一次分享时生效。
+这个扩展跑在 Windows 本机（`extensionKind: ui`）。活动栏图标是 **Cursor Optimization**。面板上的开关在下一次分享时生效。
 
 ## 它处理的两件事
 
@@ -24,9 +24,9 @@
 
 ## 使用
 
-1. 命令面板执行 **Share Trim: Trim conversation to the share limit and share**。它把长度裁剪写进 Cursor 程序，按 Cursor 3.21.16 编写。
+1. 命令面板执行 **Cursor Optimization: Trim conversation to the share limit and share**。它把长度裁剪写进 Cursor 程序，按 Cursor 3.21.16 编写。
 2. 完全退出所有 Cursor 进程后再打开。只重载窗口不会换上已经载入的程序脚本。
-3. 在 **分享裁剪** 面板里确认开关，再点 **Share Transcript**。
+3. 在 **Cursor Optimization** 面板里确认开关，再点 **Share Transcript**。
 
 Cursor 升级会覆盖安装目录里的修改。升级后再执行一次上面的命令，并重新打开 Cursor。
 
@@ -48,9 +48,9 @@ npm run compile
 
 ---
 
-# Cursor Share Trim
+# Cursor Optimization
 
-This extension runs on the Windows machine (`extensionKind: ui`). Its activity-bar icon is **分享裁剪**. Panel switches apply on the next share.
+This extension runs on the Windows machine (`extensionKind: ui`). Its activity-bar icon is **Cursor Optimization**. Panel switches apply on the next share.
 
 ## What it handles
 
@@ -74,9 +74,9 @@ With **重新生成链接** on, each share creates a link from the current chat 
 
 ## Usage
 
-1. Run **Share Trim: Trim conversation to the share limit and share** from the Command Palette. This writes the length trim into the Cursor installation. The patch matches Cursor 3.21.16.
+1. Run **Cursor Optimization: Trim conversation to the share limit and share** from the Command Palette. This writes the length trim into the Cursor installation. The patch matches Cursor 3.21.16.
 2. Quit every Cursor process, then open Cursor again. Reloading the window does not replace the program script already loaded.
-3. Check the switches in the **分享裁剪** panel, then use **Share Transcript**.
+3. Check the switches in the **Cursor Optimization** panel, then use **Share Transcript**.
 
 A Cursor update overwrites the installation change. Run the command again after an update, then reopen Cursor.
 
