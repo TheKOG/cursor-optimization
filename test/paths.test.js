@@ -70,6 +70,16 @@ function testDrives() {
     }),
     ["D:"]
   );
+  assert.deepStrictEqual(
+    collectMirrorDrives({
+      appRoot: "C:\\cursor\\resources\\app",
+      cwd: "C:\\Users\\jekywang",
+      systemDrive: "C:",
+      configured: "",
+      fixedDrives: ["C:", "D:", "E:"],
+    }),
+    ["C:", "D:", "E:"]
+  );
   assert.strictEqual(normalizeDrive("C:\\"), "C:");
   assert.throws(() =>
     collectMirrorDrives({

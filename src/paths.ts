@@ -66,6 +66,7 @@ export function collectMirrorDrives(options: {
   cwd: string;
   systemDrive?: string;
   configured: string;
+  fixedDrives?: string[];
 }): string[] {
   if (options.configured.trim()) {
     const drive = normalizeDrive(options.configured);
@@ -80,6 +81,7 @@ export function collectMirrorDrives(options: {
     path.win32.parse(options.appRoot).root,
     options.systemDrive ?? "",
     path.win32.parse(options.cwd).root,
+    ...(options.fixedDrives ?? []),
   ];
   for (const root of roots) {
     const drive = normalizeDrive(root);

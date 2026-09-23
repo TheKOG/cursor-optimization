@@ -110,6 +110,7 @@ function collectMirrorDrives(options) {
         path.win32.parse(options.appRoot).root,
         options.systemDrive ?? "",
         path.win32.parse(options.cwd).root,
+        ...(options.fixedDrives ?? []),
     ];
     for (const root of roots) {
         const drive = normalizeDrive(root);
