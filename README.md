@@ -1,6 +1,6 @@
 # Cursor Share Trim
 
-这个扩展跑在 Windows 本机（`extensionKind: ui`）。活动栏图标是 **分享裁剪**。分享页带不上截图，所以不再镜像聊天图片。面板上的开关在下一次分享时生效。
+这个扩展跑在 Windows 本机（`extensionKind: ui`）。活动栏图标是 **分享裁剪**。面板上的开关在下一次分享时生效。
 
 ## 它处理的两件事
 
@@ -21,8 +21,6 @@
 分享是一次快照。会话上已经有链接时，再点 **Share Transcript** 不会重新上传，只会弹出上次的链接。后加的对话因此不会出现。
 
 打开 **重新生成链接** 后，每次分享都按当前会话新建链接，并删掉这个会话的旧链接。关掉后恢复 Cursor 原来的行为。
-
-Cursor 的分享请求在上传前会清空图片。协议里虽然有图片字段，分享页和 Fork 都不使用它，所以这个插件不再上传截图。
 
 ## 使用
 
@@ -52,7 +50,7 @@ npm run compile
 
 # Cursor Share Trim
 
-This extension runs on the Windows machine (`extensionKind: ui`). Its activity-bar icon is **分享裁剪**. Shared transcripts cannot carry screenshots, so it no longer mirrors chat images. Panel switches apply on the next share.
+This extension runs on the Windows machine (`extensionKind: ui`). Its activity-bar icon is **分享裁剪**. Panel switches apply on the next share.
 
 ## What it handles
 
@@ -73,8 +71,6 @@ With **长度裁剪** on, **带上计划** decides whether every round includes 
 A share is a snapshot. Once the chat has a link, **Share Transcript** does not upload again. It opens the previous link. Messages added later never appear there.
 
 With **重新生成链接** on, each share creates a link from the current chat and deletes the older links for that chat. Turn it off to keep Cursor's original behavior.
-
-Cursor clears images before the share request is sent. The message format has an image field, but the share page and Fork do not use it, so this extension does not upload screenshots.
 
 ## Usage
 
