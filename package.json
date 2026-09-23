@@ -2,9 +2,18 @@
   "name": "cursor-optimization",
   "displayName": "Cursor Optimization",
   "description": "分享超限时裁到服务器还能接受的长度，并可以把整段会话连图片缓存到工作区后再 Fork 回本地。",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "TheKOG",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TheKOG/cursor-optimization.git"
+  },
+  "homepage": "https://github.com/TheKOG/cursor-optimization",
+  "icon": "media/icon.png",
+  "bugs": {
+    "url": "https://github.com/TheKOG/cursor-optimization/issues"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -80,8 +89,14 @@
         },
         "shareImageMirror.language": {
           "type": "string",
-          "enum": ["zh", "en"],
-          "enumDescriptions": ["中文", "English"],
+          "enum": [
+            "zh",
+            "en"
+          ],
+          "enumDescriptions": [
+            "中文",
+            "English"
+          ],
           "default": "zh",
           "markdownDescription": "控制面板和分享提示的语言。默认中文。"
         },
@@ -97,11 +112,13 @@
   },
   "scripts": {
     "compile": "tsc -p ./",
-    "test": "node test/shareTrim.test.js"
+    "test": "node test/shareTrim.test.js",
+    "package": "node scripts/pack-vsix.js"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.6.0",
     "typescript": "^5.9.2"
   }
 }
