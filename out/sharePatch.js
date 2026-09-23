@@ -96,7 +96,11 @@ function upgradeCacheReadBytes(source) {
 function applyShareCachePatch(source) {
     if (source.includes(cacheWorkbench_1.SHARE_CACHE_MARKER)) {
         const upgraded = upgradeCacheReadBytes(source);
-        return { source: upgraded.source, status: upgraded.changed ? "inserted" : "already" };
+        const methods = upgradeCacheMethods(upgraded.source);
+        return {
+            source: methods.source,
+            status: upgraded.changed || methods.changed ? "inserted" : "already",
+        };
     }
     if (countOf(source, cacheWorkbench_1.CACHE_MENU_FROM) !== 1 || countOf(source, cacheWorkbench_1.CACHE_FORK_FROM) !== 1) {
         return { source, status: "missing-anchor" };
@@ -134,7 +138,11 @@ function glassCacheMethods() {
 function applyGlassShareCachePatch(source) {
     if (source.includes(cacheWorkbench_1.SHARE_CACHE_MARKER)) {
         const upgraded = upgradeCacheReadBytes(source);
-        return { source: upgraded.source, status: upgraded.changed ? "inserted" : "already" };
+        const methods = upgradeCacheMethods(upgraded.source);
+        return {
+            source: methods.source,
+            status: upgraded.changed || methods.changed ? "inserted" : "already",
+        };
     }
     if (countOf(source, cacheWorkbench_1.GLASS_MENU_FROM) !== 1 || countOf(source, cacheWorkbench_1.GLASS_FORK_FROM) !== 1) {
         return { source, status: "missing-anchor" };
@@ -185,6 +193,32 @@ function applyEditorTitleCachePatch(source) {
             : { source, status: "missing-anchor" };
     }
     return { source, status: "missing-anchor" };
+}
+function upgradeCacheMethods(source) {
+    const start = source.indexOf("async __shareTrimLang()");
+    if (start < 0) {
+        return { source, changed: false };
+    }
+    const endDesktop = source.indexOf("async forkSharedConversation(e,t){if(!UQe())", start);
+    const endGlass = source.indexOf("async forkSharedConversation(t,e){if(!DOe())", start);
+    let end = -1;
+    let glass = false;
+    if (endDesktop >= 0 && (endGlass < 0 || endDesktop <= endGlass)) {
+        end = endDesktop;
+    }
+    else if (endGlass >= 0) {
+        end = endGlass;
+        glass = true;
+    }
+    if (end < 0) {
+        return { source, changed: false };
+    }
+    const current = source.slice(start, end);
+    if (current.includes("this.__shareTrimBusyHandle") && current.includes("fs.existsSync(p)")) {
+        return { source, changed: false };
+    }
+    const next = (glass ? glassCacheMethods() : cacheWorkbench_1.CACHE_METHODS).replace(/^\n/, "");
+    return { source: source.slice(0, start) + next + source.slice(end), changed: true };
 }
 function pickRegister(source, pairs) {
     return pairs

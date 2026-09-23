@@ -128,7 +128,11 @@ function upgradeCacheReadBytes(source: string): { source: string; changed: boole
 export function applyShareCachePatch(source: string): { source: string; status: PatchStatus } {
   if (source.includes(SHARE_CACHE_MARKER)) {
     const upgraded = upgradeCacheReadBytes(source);
-    return { source: upgraded.source, status: upgraded.changed ? "inserted" : "already" };
+    const methods = upgradeCacheMethods(upgraded.source);
+    return {
+      source: methods.source,
+      status: upgraded.changed || methods.changed ? "inserted" : "already",
+    };
   }
   if (countOf(source, CACHE_MENU_FROM) !== 1 || countOf(source, CACHE_FORK_FROM) !== 1) {
     return { source, status: "missing-anchor" };
@@ -170,7 +174,11 @@ export function glassCacheMethods(): string {
 export function applyGlassShareCachePatch(source: string): { source: string; status: PatchStatus } {
   if (source.includes(SHARE_CACHE_MARKER)) {
     const upgraded = upgradeCacheReadBytes(source);
-    return { source: upgraded.source, status: upgraded.changed ? "inserted" : "already" };
+    const methods = upgradeCacheMethods(upgraded.source);
+    return {
+      source: methods.source,
+      status: upgraded.changed || methods.changed ? "inserted" : "already",
+    };
   }
   if (countOf(source, GLASS_MENU_FROM) !== 1 || countOf(source, GLASS_FORK_FROM) !== 1) {
     return { source, status: "missing-anchor" };
@@ -238,6 +246,32 @@ export function applyEditorTitleCachePatch(source: string): { source: string; st
       : { source, status: "missing-anchor" };
   }
   return { source, status: "missing-anchor" };
+}
+
+function upgradeCacheMethods(source: string): { source: string; changed: boolean } {
+  const start = source.indexOf("async __shareTrimLang()");
+  if (start < 0) {
+    return { source, changed: false };
+  }
+  const endDesktop = source.indexOf("async forkSharedConversation(e,t){if(!UQe())", start);
+  const endGlass = source.indexOf("async forkSharedConversation(t,e){if(!DOe())", start);
+  let end = -1;
+  let glass = false;
+  if (endDesktop >= 0 && (endGlass < 0 || endDesktop <= endGlass)) {
+    end = endDesktop;
+  } else if (endGlass >= 0) {
+    end = endGlass;
+    glass = true;
+  }
+  if (end < 0) {
+    return { source, changed: false };
+  }
+  const current = source.slice(start, end);
+  if (current.includes("this.__shareTrimBusyHandle") && current.includes("fs.existsSync(p)")) {
+    return { source, changed: false };
+  }
+  const next = (glass ? glassCacheMethods() : CACHE_METHODS).replace(/^\n/, "");
+  return { source: source.slice(0, start) + next + source.slice(end), changed: true };
 }
 
 function pickRegister(source: string, pairs: Array<[string, string]>): { from: string; to: string } | undefined {

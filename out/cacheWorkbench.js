@@ -22,10 +22,12 @@ exports.CACHE_READ_BYTES_OLD = 'const __readBytes=async imagePath=>{const attemp
 exports.CACHE_READ_BYTES = 'const __readBytes=async imagePath=>{const __u8=raw=>raw instanceof Uint8Array?raw:new Uint8Array(raw);let p=typeof imagePath==="string"?imagePath:"";if(/^vscode-file:\\/\\//i.test(p))p=p.replace(/^vscode-file:\\/\\/[^/]+/i,"");if(/^file:\\/\\//i.test(p)){try{p=decodeURIComponent(p.replace(/^file:\\/\\//i,""))}catch{}}p=p.replace(/^\\/([A-Za-z]:)/,"$1");try{let fs;try{fs=require("fs")}catch(e){fs=process.mainModule.require("fs")}if(p&&fs.existsSync(p)){const buf=fs.readFileSync(p);if(buf&&buf.length)return __u8(buf)}}catch{}const attempts=[we.file(p||imagePath)];if(root.scheme!=="file"&&String(p||imagePath).charAt(0)==="/")attempts.push(root.with({path:p||imagePath}));let last;for(const uri of attempts){try{const result=await this.composerFileService.readFile({uri,composerData:void 0});const raw=result.value&&result.value.buffer;if(raw==null)throw new Error("empty");const bytes=__u8(raw);if(!bytes.length)throw new Error("empty");return bytes}catch(err){last=err}}throw last};';
 exports.CACHE_METHODS = `
 async __shareTrimLang(){try{const home=typeof process!=="undefined"&&process.env?process.env.USERPROFILE||process.env.HOME||"":"";if(!home)return globalThis.__cursorShareTrimLang==="en"?"en":"zh";const uri=we.file(home+"/.cursor/share-image-mirror.json");const result=await this.composerFileService.readFile({uri,composerData:void 0});const raw=result.value.buffer;const text=new TextDecoder().decode(raw instanceof Uint8Array?raw:new Uint8Array(raw));const json=JSON.parse(text);const lang=json.language==="en"?"en":"zh";globalThis.__cursorShareTrimLang=lang;return lang}catch{return globalThis.__cursorShareTrimLang==="en"?"en":"zh"}}
+__shareTrimBusy(text){try{if(this.__shareTrimBusyHandle){this.__shareTrimBusyHandle.close();this.__shareTrimBusyHandle=void 0}if(!text)return;const note=this._notificationService;if(note&&typeof note.status==="function")this.__shareTrimBusyHandle=note.status(text,{showProgress:!0})}catch{}}
 async cacheTranscript(e){${exports.SHARE_CACHE_MARKER}
 const __lang=await this.__shareTrimLang();
 const __zh=__lang!=="en";
 const __tell=(text,kind)=>{const note=this._notificationService;if(kind==="error"&&typeof note.error==="function"){note.error(text);return}if(typeof note.info==="function"){note.info(text);return}if(typeof note.notify==="function")note.notify({severity:kind==="error"?3:1,message:text})};
+this.__shareTrimBusy(__zh?"正在缓存…":"Caching…");
 try{
 if(typeof e!=="string"||!e)return;
 const handle=await this.composerDataService.getComposerHandleById(e);
@@ -78,11 +80,13 @@ await this.composerFileService.writeFile({uri:we.joinPath(dir,"index.json"),buff
 console.warn("[share-trim] cache id="+id+" messages="+stored.length+" images="+imageCount);
 __tell(__zh?"已把会话缓存到工作区服务器":"Cached the transcript on the workspace server","info");
 }catch(err){console.warn("[share-trim] cache failed",err&&(err.message||String(err)));__tell((__zh?"缓存失败：":"Cache failed: ")+(err&&(err.message||String(err))||""),"error")}
+finally{this.__shareTrimBusy()}
 }
 async forkCachedTranscript(e){
 const __lang=await this.__shareTrimLang();
 const __zh=__lang!=="en";
 const __tell=(text,kind)=>{const note=this._notificationService;if(kind==="error"&&typeof note.error==="function"){note.error(text);return}if(typeof note.info==="function"){note.info(text);return}if(typeof note.notify==="function")note.notify({severity:kind==="error"?3:1,message:text})};
+this.__shareTrimBusy(__zh?"正在 Fork…":"Forking…");
 try{
 if(typeof e!=="string"||!/^[A-Za-z0-9_-]{1,80}$/.test(e))throw new Error(__zh?"缓存编号无效":"Invalid cache id");
 const folders=this.workspaceContextService.getWorkspace().folders||[];
@@ -136,6 +140,7 @@ await this.openComposer(id,{insertSelection:!1,openInNewTab:!0});
 console.warn("[share-trim] fork id="+e+" messages="+bubbles.length);
 __tell(__zh?"已从服务器缓存 Fork 到本地":"Forked the cached transcript into a local chat","info");
 }catch(err){console.warn("[share-trim] fork failed",err&&(err.message||String(err)));__tell((__zh?"Fork 失败：":"Fork failed: ")+(err&&(err.message||String(err))||""),"error")}
+finally{this.__shareTrimBusy()}
 }
 `;
 //# sourceMappingURL=cacheWorkbench.js.map

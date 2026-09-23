@@ -355,6 +355,10 @@ function testCachePatch() {
   assert.ok(first.source.includes("$e(__ShareTrimForkCommand)"));
   assert.ok(first.source.includes("context.selectedImages"));
   assert.ok(first.source.includes("fs.existsSync(p)"));
+  assert.ok(first.source.includes('__zh?"正在缓存…":"Caching…"'));
+  assert.ok(first.source.includes('__zh?"正在 Fork…":"Forking…"'));
+  assert.ok(first.source.includes("this.__shareTrimBusyHandle"));
+  assert.ok(first.source.includes("showProgress:!0"));
   assert.strictEqual(applyShareCachePatch(first.source).status, "already");
   const stale = first.source.replace(CACHE_READ_BYTES, CACHE_READ_BYTES_OLD);
   assert.ok(stale.includes("const attempts=[we.file(imagePath)]"));
@@ -362,6 +366,12 @@ function testCachePatch() {
   assert.strictEqual(upgraded.status, "inserted");
   assert.ok(upgraded.source.includes("fs.existsSync(p)"));
   assert.ok(!upgraded.source.includes("const attempts=[we.file(imagePath)]"));
+  const noBusy = first.source.replaceAll("__shareTrimBusyHandle", "__removedBusy");
+  assert.ok(!noBusy.includes("this.__shareTrimBusyHandle"));
+  const busyUpgrade = applyShareCachePatch(noBusy);
+  assert.strictEqual(busyUpgrade.status, "inserted");
+  assert.ok(busyUpgrade.source.includes("this.__shareTrimBusyHandle"));
+  assert.ok(busyUpgrade.source.includes('__zh?"正在缓存…":"Caching…"'));
   assert.strictEqual(applyShareCachePatch("nope").status, "missing-anchor");
   const methodsStart = first.source.indexOf("async __shareTrimLang()");
   const methodsEnd = first.source.indexOf("async forkSharedConversation(e,t){if(!UQe())");
@@ -397,6 +407,8 @@ function testGlassCachePatch() {
   assert.ok(first.source.includes("Ze.joinPath"));
   assert.ok(!first.source.includes("we.joinPath"));
   assert.ok(first.source.includes("t.get(tp).forkCachedTranscript"));
+  assert.ok(first.source.includes('__zh?"正在 Fork…":"Forking…"'));
+  assert.ok(first.source.includes("this.__shareTrimBusyHandle"));
   assert.strictEqual(applyGlassShareCachePatch(first.source).status, "already");
   const methodsStart = first.source.indexOf("async __shareTrimLang()");
   const methodsEnd = first.source.indexOf("async forkSharedConversation(t,e){if(!DOe())");

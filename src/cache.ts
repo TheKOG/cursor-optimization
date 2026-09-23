@@ -237,13 +237,21 @@ export async function forkCache(id: string): Promise<void> {
     return;
   }
   try {
-    await vscode.commands.executeCommand("shareImageMirror.forkCache", id);
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Window,
+        title: zh ? "正在 Fork…" : "Forking…",
+      },
+      async () => {
+        await vscode.commands.executeCommand("shareImageMirror.forkCache", id);
+      }
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const hint = /not found/i.test(message)
       ? zh
-        ? "。Fork 命令写在 Cursor 程序里，只装插件不够。请换 0.10.1 后完全退出 Cursor 再打开（不要只 Reload）。"
-        : ". The fork command lives in the Cursor app. Install 0.10.1, then fully quit Cursor and reopen (Reload is not enough)."
+        ? "。Fork 命令写在 Cursor 程序里，只装插件不够。请换 0.11.0 后完全退出 Cursor 再打开（不要只 Reload）。"
+        : ". The fork command lives in the Cursor app. Install 0.11.0, then fully quit Cursor and reopen (Reload is not enough)."
       : "";
     void vscode.window.showErrorMessage((zh ? "Fork 失败：" : "Fork failed: ") + message + hint);
   }
