@@ -173,3 +173,21 @@ __tell(__zh?"已从服务器缓存 Fork 到本地":"Forked the cached transcript
 finally{this.__shareTrimBusy()}
 }
 `;
+
+export type CacheSymbolNames = {
+  uri: string;
+  buffer: string;
+  id: string;
+  bubble: string;
+  header: string;
+  workspace: string;
+};
+
+export function cacheMethodsFor(symbols: CacheSymbolNames): string {
+  return CACHE_METHODS.replaceAll("we.", `${symbols.uri}.`)
+    .replaceAll("pi.", `${symbols.buffer}.`)
+    .replaceAll("Vn()", `${symbols.id}()`)
+    .replaceAll("gf()", `${symbols.bubble}()`)
+    .replaceAll("aN(", `${symbols.header}(`)
+    .replaceAll("kS(", `${symbols.workspace}(`);
+}

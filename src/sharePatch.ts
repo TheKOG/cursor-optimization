@@ -1,42 +1,38 @@
 import {
-  CACHE_FORK_FROM,
-  CACHE_MENU_FROM,
-  CACHE_MENU_TO,
-  CACHE_METHODS,
   CACHE_READ_BYTES,
   CACHE_READ_BYTES_OLD,
   CACHE_REGISTER_FROM,
   CACHE_REGISTER_FROM_32118,
   CACHE_REGISTER_TO,
   CACHE_REGISTER_TO_32118,
-  GLASS_FORK_FROM,
-  GLASS_MENU_FROM,
-  GLASS_MENU_TO,
+  cacheMethodsFor,
   GLASS_REGISTER_FROM,
   GLASS_REGISTER_FROM_32118,
   GLASS_REGISTER_TO,
   GLASS_REGISTER_TO_32118,
   SHARE_CACHE_MARKER,
+  type CacheSymbolNames,
 } from "./cacheWorkbench";
 import { clampAttempt, shareTooBig, shareWithinLimit, shrinkMessages } from "./shareTrim";
+import {
+  cacheMenuInsertion,
+  discoverSymbols,
+  findEditorMenus,
+  findForkSites,
+  findMenuSites,
+  findShareCommand,
+  findShareErrors,
+  findShareHeads,
+  findShareSends,
+  shareCommandBlock,
+} from "./workbenchShape";
 
 export const SHARE_TRIM_MARKER = "/*share-trim-1*/";
 export const SHARE_ERROR_MARKER = "/*share-error-1*/";
 
-const SHARE_ERROR_BODY =
-  /function (\w+)\(e\)\{return e instanceof Error&&e\.message==="No content to share"\?"Failed to share transcript\. Agent conversation is empty\.":(\w+)\(e\)\?"This chat is too large to share\. Try sharing a shorter chat\.":"Failed to share transcript\. Try again later\."\}/;
-
-function shareErrorReplacement(name: string, tooBig: string): string {
-  return `function ${name}(e){const __why=e&&String(e.rawMessage||e.message||"").replace(/\\s+/g," ").trim();const __prefix=globalThis.__cursorShareTrimLang==="en"?"Share failed: ":"分享失败：";return e instanceof Error&&e.message==="No content to share"?"Failed to share transcript. Agent conversation is empty.":${tooBig}(e)?"This chat is too large to share. Try sharing a shorter chat.":__why?__prefix+__why:"Failed to share transcript. Try again later."}`;
+function shareErrorReplacement(name: string, param: string, tooBig: string): string {
+  return `function ${name}(${param}){const __why=${param}&&String(${param}.rawMessage||${param}.message||"").replace(/\\s+/g," ").trim();const __prefix=globalThis.__cursorShareTrimLang==="en"?"Share failed: ":"分享失败：";return ${param} instanceof Error&&${param}.message==="No content to share"?"Failed to share transcript. Agent conversation is empty.":${tooBig}(${param})?"This chat is too large to share. Try sharing a shorter chat.":__why?__prefix+__why:"Failed to share transcript. Try again later."}`;
 }
-
-const SHARE_ANCHOR = "async shareConversation(e,t,n){if(!UQe())";
-
-const SHARE_SEND =
-  "c=await o.shareConversation(new IWs({conversationId:e.data.composerId,title:t,visibility:n,messages:s,latestPlan:a}));return{shareId:c.shareId,shareUrl:c.shareUrl,redactions:c.redactions||0}";
-
-const SHARE_SEND_PATCHED =
-  "c=await globalThis.__cursorShareTrimV1({messages:s,title:t,send:(msgs,title,includePlan)=>o.shareConversation(new IWs({conversationId:e.data.composerId,title:title,visibility:n,messages:msgs,latestPlan:includePlan?a:void 0})),deleteShare:(id)=>this.deleteSharedConversation(id)});return{shareId:c.shareId,shareUrl:c.shareUrl,redactions:c.redactions||0}";
 
 export { SHARE_CACHE_MARKER } from "./cacheWorkbench";
 
@@ -49,54 +45,74 @@ const IMAGE_TO =
 
 export type PatchStatus = "inserted" | "already" | "missing-anchor";
 
+export type PatchResult = { source: string; status: PatchStatus; detail?: string };
+
 export function buildShareTrimRuntime(): string {
   return `(function(){${shareTooBig.toString()};${shrinkMessages.toString()};${clampAttempt.toString()};return ${shareWithinLimit.toString()};})()`;
 }
 
-export function applyShareTrimPatch(source: string): { source: string; status: PatchStatus } {
+export function applyShareTrimPatch(source: string): PatchResult {
   if (source.includes(SHARE_TRIM_MARKER)) {
     return { source, status: "already" };
   }
-  const anchors = countOf(source, SHARE_ANCHOR);
-  const sends = countOf(source, SHARE_SEND);
-  if (anchors !== 1 || sends !== 1) {
-    return { source, status: "missing-anchor" };
+  const heads = findShareHeads(source);
+  const sends = findShareSends(source);
+  if (heads.length !== 1 || sends.length !== 1) {
+    return {
+      source,
+      status: "missing-anchor",
+      detail: `share heads=${heads.length} sends=${sends.length}`,
+    };
   }
-  const patched = source
-    .replace(SHARE_SEND, SHARE_SEND_PATCHED)
-    .replace(
-      SHARE_ANCHOR,
-      `async shareConversation(e,t,n){if(!globalThis.__cursorShareTrimV1){globalThis.__cursorShareTrimV1=${SHARE_TRIM_MARKER}${buildShareTrimRuntime()};}if(!UQe())`
-    );
-  if (!patched.includes(SHARE_TRIM_MARKER) || patched.includes(SHARE_SEND)) {
-    return { source, status: "missing-anchor" };
+  const send = sends[0];
+  const patchedSend = `${send.result}=await globalThis.__cursorShareTrimV1({messages:${send.messages},title:${send.title},send:(msgs,title,includePlan)=>${send.client}.shareConversation(new ${send.ctor}({conversationId:${send.conversationId},title:title,visibility:${send.visibility},messages:msgs,latestPlan:includePlan?${send.plan}:void 0})),deleteShare:(id)=>this.deleteSharedConversation(id)})`;
+  const patched = source.replace(SHARE_SEND_RE_SOURCE(sends[0]), patchedSend).replace(
+    heads[0].from,
+    `async shareConversation(${shareHeadParams(heads[0].from)}){if(!globalThis.__cursorShareTrimV1){globalThis.__cursorShareTrimV1=${SHARE_TRIM_MARKER}${buildShareTrimRuntime()};}if(!${heads[0].guard}())`
+  );
+  if (!patched.includes(SHARE_TRIM_MARKER) || patched.includes(shareSendOriginal(send))) {
+    return { source, status: "missing-anchor", detail: "share rewrite did not apply" };
   }
   return { source: patched, status: "inserted" };
 }
 
-export function applyShareErrorPatch(source: string): { source: string; status: PatchStatus } {
+function shareHeadParams(from: string): string {
+  const match = from.match(/async shareConversation\((.*)\)\{/);
+  return match ? match[1] : "e,t,n";
+}
+
+function shareSendOriginal(send: ReturnType<typeof findShareSends>[number]): string {
+  return `${send.result}=await ${send.client}.shareConversation(new ${send.ctor}({conversationId:${send.conversationId},title:${send.title},visibility:${send.visibility},messages:${send.messages},latestPlan:${send.plan}}))`;
+}
+
+function SHARE_SEND_RE_SOURCE(send: ReturnType<typeof findShareSends>[number]): string {
+  return shareSendOriginal(send);
+}
+
+export function applyShareErrorPatch(source: string): PatchResult {
   if (source.includes(SHARE_ERROR_MARKER) && source.includes("__prefix+__why")) {
     return { source, status: "already" };
   }
-  const start = source.search(/function \w+\(e\)\{const __why=/);
+  const start = source.search(/function \w+\(\w+\)\{const __why=/);
   const end = source.indexOf(SHARE_ERROR_MARKER, start);
   if (start >= 0 && end > start) {
-    const named = source.slice(start).match(/^function (\w+)\(e\)\{/);
-    const tooBig = source.slice(start, end).match(/:(\w+)\(e\)\?"This chat is too large/);
+    const named = source.slice(start).match(/^function (\w+)\((\w+)\)\{/);
+    const tooBig = source.slice(start, end).match(/:(\w+)\(\w+\)\?"This chat is too large/);
     if (named && tooBig) {
-      const upgraded = `${shareErrorReplacement(named[1], tooBig[1])}${SHARE_ERROR_MARKER}`;
+      const upgraded = `${shareErrorReplacement(named[1], named[2], tooBig[1])}${SHARE_ERROR_MARKER}`;
       return {
         source: source.slice(0, start) + upgraded + source.slice(end + SHARE_ERROR_MARKER.length),
         status: "inserted",
       };
     }
   }
-  const match = source.match(SHARE_ERROR_BODY);
-  if (!match || countOf(source, match[0]) !== 1) {
-    return { source, status: "missing-anchor" };
+  const errors = findShareErrors(source);
+  if (errors.length !== 1) {
+    return { source, status: "missing-anchor", detail: `share errors=${errors.length}` };
   }
+  const error = errors[0];
   return {
-    source: source.replace(match[0], `${shareErrorReplacement(match[1], match[2])}${SHARE_ERROR_MARKER}`),
+    source: source.replace(error.from, `${shareErrorReplacement(error.name, error.param, error.tooBig)}${SHARE_ERROR_MARKER}`),
     status: "inserted",
   };
 }
@@ -125,53 +141,60 @@ function upgradeCacheReadBytes(source: string): { source: string; changed: boole
   return { source: next, changed };
 }
 
-export function applyShareCachePatch(source: string): { source: string; status: PatchStatus } {
-  if (source.includes(SHARE_CACHE_MARKER)) {
-    const upgraded = upgradeCacheReadBytes(source);
-    const methods = upgradeCacheMethods(upgraded.source);
-    return {
-      source: methods.source,
-      status: upgraded.changed || methods.changed ? "inserted" : "already",
-    };
-  }
-  if (countOf(source, CACHE_MENU_FROM) !== 1 || countOf(source, CACHE_FORK_FROM) !== 1) {
-    return { source, status: "missing-anchor" };
-  }
-  const register = pickRegister(source, [
-    [CACHE_REGISTER_FROM, CACHE_REGISTER_TO],
-    [CACHE_REGISTER_FROM_32118, CACHE_REGISTER_TO_32118],
-  ]);
-  if (!register) {
-    return { source, status: "missing-anchor" };
-  }
-  const patched = source
-    .replace(CACHE_MENU_FROM, CACHE_MENU_TO)
-    .replace(CACHE_FORK_FROM, `${CACHE_METHODS}${CACHE_FORK_FROM}`)
-    .replace(register.from, register.to);
-  if (
-    !patched.includes(SHARE_CACHE_MARKER) ||
-    patched.includes(CACHE_MENU_FROM) ||
-    patched.includes(register.from) ||
-    countOf(patched, "async cacheTranscript(") !== 1 ||
-    countOf(patched, "async forkCachedTranscript(") !== 1
-  ) {
-    return { source, status: "missing-anchor" };
-  }
-  return { source: patched, status: "inserted" };
-}
+const DESKTOP_SYMBOLS: CacheSymbolNames = {
+  uri: "we",
+  buffer: "pi",
+  id: "Vn",
+  bubble: "gf",
+  header: "aN",
+  workspace: "kS",
+};
+
+const GLASS_SYMBOLS: CacheSymbolNames = {
+  uri: "Ze",
+  buffer: "yr",
+  id: "bi",
+  bubble: "Vv",
+  header: "RO",
+  workspace: "n0",
+};
 
 export function glassCacheMethods(): string {
-  return CACHE_METHODS.replaceAll("we.file", "Ze.file")
-    .replaceAll("we.joinPath", "Ze.joinPath")
-    .replaceAll("pi.fromString", "yr.fromString")
-    .replaceAll("pi.wrap", "yr.wrap")
-    .replaceAll("Vn()", "bi()")
-    .replaceAll("gf()", "Vv()")
-    .replaceAll("aN(", "RO(")
-    .replaceAll("kS(", "n0(");
+  return cacheMethodsFor(GLASS_SYMBOLS);
 }
 
-export function applyGlassShareCachePatch(source: string): { source: string; status: PatchStatus } {
+export function applyShareCachePatch(source: string): PatchResult {
+  return applyCachePatch(source, {
+    symbols: DESKTOP_SYMBOLS,
+    registerPairs: [
+      [CACHE_REGISTER_FROM, CACHE_REGISTER_TO],
+      [CACHE_REGISTER_FROM_32118, CACHE_REGISTER_TO_32118],
+    ],
+    requireForkMethod: true,
+  });
+}
+
+export function applyGlassShareCachePatch(source: string): PatchResult {
+  return applyCachePatch(source, {
+    symbols: GLASS_SYMBOLS,
+    registerPairs: [
+      [GLASS_REGISTER_FROM, GLASS_REGISTER_TO],
+      [GLASS_REGISTER_FROM_32118, GLASS_REGISTER_TO_32118],
+    ],
+    requireForkMethod: false,
+    rejectUnmappedGlass: true,
+  });
+}
+
+function applyCachePatch(
+  source: string,
+  fallback: {
+    symbols: CacheSymbolNames;
+    registerPairs: Array<[string, string]>;
+    requireForkMethod: boolean;
+    rejectUnmappedGlass?: boolean;
+  }
+): PatchResult {
   if (source.includes(SHARE_CACHE_MARKER)) {
     const upgraded = upgradeCacheReadBytes(source);
     const methods = upgradeCacheMethods(upgraded.source);
@@ -180,31 +203,46 @@ export function applyGlassShareCachePatch(source: string): { source: string; sta
       status: upgraded.changed || methods.changed ? "inserted" : "already",
     };
   }
-  if (countOf(source, GLASS_MENU_FROM) !== 1 || countOf(source, GLASS_FORK_FROM) !== 1) {
-    return { source, status: "missing-anchor" };
+  const menus = findMenuSites(source);
+  const forks = findForkSites(source);
+  const structural = findShareCommand(source);
+  const exact = structural ? undefined : pickRegister(source, fallback.registerPairs);
+  if (menus.length !== 1 || forks.length !== 1 || (!structural && !exact)) {
+    return {
+      source,
+      status: "missing-anchor",
+      detail: `menu=${menus.length} fork=${forks.length} command=${structural ? "shape" : exact ? "exact" : "missing"}`,
+    };
   }
-  const register = pickRegister(source, [
-    [GLASS_REGISTER_FROM, GLASS_REGISTER_TO],
-    [GLASS_REGISTER_FROM_32118, GLASS_REGISTER_TO_32118],
-  ]);
-  if (!register) {
-    return { source, status: "missing-anchor" };
+  const symbols = discoverSymbols(source, forks[0].index) ?? fallback.symbols;
+  const methods = cacheMethodsFor(symbols);
+  if (
+    fallback.rejectUnmappedGlass &&
+    !discoverSymbols(source, forks[0].index) &&
+    (methods.includes("we.joinPath") || methods.includes("pi.") || methods.includes("Vn()") || methods.includes("gf()"))
+  ) {
+    return { source, status: "missing-anchor", detail: "glass helper names were not rewritten" };
   }
-  const methods = glassCacheMethods();
-  if (methods.includes("we.joinPath") || methods.includes("pi.") || methods.includes("Vn()") || methods.includes("gf()")) {
-    return { source, status: "missing-anchor" };
+  let patched = source.replace(menus[0].from, cacheMenuInsertion(menus[0])).replace(forks[0].from, `${methods}${forks[0].from}`);
+  if (structural) {
+    patched = patched
+      .replace(structural.decorateFrom, `${structural.decorateFrom};${shareCommandBlock(structural)}`)
+      .replace(
+        structural.registerFrom,
+        `${structural.registerFrom},${structural.register}(__ShareTrimCacheCommand),${structural.register}(__ShareTrimForkCommand)`
+      );
+  } else if (exact) {
+    patched = patched.replace(exact.from, exact.to);
   }
-  const patched = source
-    .replace(GLASS_MENU_FROM, GLASS_MENU_TO)
-    .replace(GLASS_FORK_FROM, `${methods}${GLASS_FORK_FROM}`)
-    .replace(register.from, register.to);
+  const registerLeft = exact && !structural ? patched.includes(exact.from) : false;
   if (
     !patched.includes(SHARE_CACHE_MARKER) ||
-    patched.includes(GLASS_MENU_FROM) ||
-    patched.includes(register.from) ||
-    countOf(patched, "async cacheTranscript(") !== 1
+    patched.includes(menus[0].from) ||
+    registerLeft ||
+    countOf(patched, "async cacheTranscript(") !== 1 ||
+    (fallback.requireForkMethod && countOf(patched, "async forkCachedTranscript(") !== 1)
   ) {
-    return { source, status: "missing-anchor" };
+    return { source, status: "missing-anchor", detail: "cache rewrite did not apply" };
   }
   return { source: patched, status: "inserted" };
 }
@@ -215,37 +253,22 @@ const EDITOR_TITLE_LABEL =
 const EDITOR_TITLE_ITEM =
   `{command:{id:"composer.cacheTranscript",${EDITOR_TITLE_LABEL}},group:"1_chatTools",order:2.5,when:`;
 
-const DESKTOP_EDITOR_FROM =
-  '{command:{id:I5t,title:"Share Transcript",icon:Re.link},group:"1_chatTools",order:2,when:ce.and(nu.Scheme.isEqualTo(dt.composer),uHt)},{command:{id:WMs,title:"Copy Request ID"},group:"1_chatTools",order:3,when:nu.Scheme.isEqualTo(dt.composer)}';
-
-const GLASS_EDITOR_FROM =
-  '{command:{id:s8t,title:"Share Transcript",icon:vt.link},group:"1_chatTools",order:2,when:ut.and(hh.Scheme.isEqualTo(Pt.composer),I7t)},{command:{id:mpa,title:"Copy Request ID"},group:"1_chatTools",order:3,when:hh.Scheme.isEqualTo(Pt.composer)}';
-
-export function applyEditorTitleCachePatch(source: string): { source: string; status: PatchStatus } {
-  if (source.includes('id:"composer.cacheTranscript",title:(()=>')) {
+export function applyEditorTitleCachePatch(source: string): PatchResult {
+  if (source.includes('id:"composer.cacheTranscript",title:(()=>') || source.includes("order:2.5,when:")) {
     return { source, status: "already" };
   }
-  const desktop = countOf(source, DESKTOP_EDITOR_FROM);
-  const glass = countOf(source, GLASS_EDITOR_FROM);
-  if (desktop === 1 && glass === 0) {
-    const patched = source.replace(
-      DESKTOP_EDITOR_FROM,
-      `{command:{id:I5t,title:"Share Transcript",icon:Re.link},group:"1_chatTools",order:2,when:ce.and(nu.Scheme.isEqualTo(dt.composer),uHt)},${EDITOR_TITLE_ITEM}nu.Scheme.isEqualTo(dt.composer)},{command:{id:WMs,title:"Copy Request ID"},group:"1_chatTools",order:3,when:nu.Scheme.isEqualTo(dt.composer)}`
-    );
-    return patched.includes('order:2.5,when:nu.Scheme.isEqualTo(dt.composer)')
-      ? { source: patched, status: "inserted" }
-      : { source, status: "missing-anchor" };
+  const menus = findEditorMenus(source);
+  if (menus.length !== 1) {
+    return { source, status: "missing-anchor", detail: `editor menus=${menus.length}` };
   }
-  if (glass === 1 && desktop === 0) {
-    const patched = source.replace(
-      GLASS_EDITOR_FROM,
-      `{command:{id:s8t,title:"Share Transcript",icon:vt.link},group:"1_chatTools",order:2,when:ut.and(hh.Scheme.isEqualTo(Pt.composer),I7t)},${EDITOR_TITLE_ITEM}hh.Scheme.isEqualTo(Pt.composer)},{command:{id:mpa,title:"Copy Request ID"},group:"1_chatTools",order:3,when:hh.Scheme.isEqualTo(Pt.composer)}`
-    );
-    return patched.includes('order:2.5,when:hh.Scheme.isEqualTo(Pt.composer)')
-      ? { source: patched, status: "inserted" }
-      : { source, status: "missing-anchor" };
-  }
-  return { source, status: "missing-anchor" };
+  const site = menus[0];
+  const patched = source.replace(
+    site.from,
+    `{command:{id:${site.shareId},title:"Share Transcript",icon:${site.icon}.link},group:"1_chatTools",order:2,when:${site.shareWhen}},${EDITOR_TITLE_ITEM}${site.copyWhen}},{command:{id:${site.copyId},title:"Copy Request ID"},group:"1_chatTools",order:3,when:${site.copyWhen}}`
+  );
+  return patched.includes(`order:2.5,when:${site.copyWhen}`)
+    ? { source: patched, status: "inserted" }
+    : { source, status: "missing-anchor", detail: "editor rewrite did not apply" };
 }
 
 function upgradeCacheMethods(source: string): { source: string; changed: boolean } {
@@ -253,16 +276,7 @@ function upgradeCacheMethods(source: string): { source: string; changed: boolean
   if (start < 0) {
     return { source, changed: false };
   }
-  const endDesktop = source.indexOf("async forkSharedConversation(e,t){if(!UQe())", start);
-  const endGlass = source.indexOf("async forkSharedConversation(t,e){if(!DOe())", start);
-  let end = -1;
-  let glass = false;
-  if (endDesktop >= 0 && (endGlass < 0 || endDesktop <= endGlass)) {
-    end = endDesktop;
-  } else if (endGlass >= 0) {
-    end = endGlass;
-    glass = true;
-  }
+  const end = source.indexOf("async forkSharedConversation(", start);
   if (end < 0) {
     return { source, changed: false };
   }
@@ -270,7 +284,13 @@ function upgradeCacheMethods(source: string): { source: string; changed: boolean
   if (current.includes("this.__shareTrimBusyHandle") && current.includes("fs.existsSync(p)")) {
     return { source, changed: false };
   }
-  const next = (glass ? glassCacheMethods() : CACHE_METHODS).replace(/^\n/, "");
+  const fork = findForkSites(source.slice(end))[0];
+  const symbols = fork ? discoverSymbols(source, end + fork.index) : undefined;
+  const glass = source.slice(end, end + 120).includes("if(!DOe())");
+  const next = (symbols ? cacheMethodsFor(symbols) : cacheMethodsFor(glass ? GLASS_SYMBOLS : DESKTOP_SYMBOLS)).replace(
+    /^\n/,
+    ""
+  );
   return { source: source.slice(0, start) + next + source.slice(end), changed: true };
 }
 

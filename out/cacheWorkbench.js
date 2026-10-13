@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CACHE_METHODS = exports.CACHE_READ_BYTES = exports.CACHE_READ_BYTES_OLD = exports.CACHE_REGISTER_TO_32118 = exports.CACHE_REGISTER_TO = exports.GLASS_REGISTER_TO_32118 = exports.GLASS_REGISTER_TO = exports.GLASS_REGISTER_FROM_32118 = exports.GLASS_REGISTER_FROM = exports.GLASS_FORK_FROM = exports.GLASS_MENU_TO = exports.GLASS_MENU_FROM = exports.CACHE_REGISTER_FROM_32118 = exports.CACHE_REGISTER_FROM = exports.CACHE_FORK_FROM = exports.CACHE_MENU_TO = exports.CACHE_MENU_FROM = exports.SHARE_CACHE_MARKER = void 0;
+exports.cacheMethodsFor = cacheMethodsFor;
 exports.SHARE_CACHE_MARKER = "/*share-cache-1*/";
 exports.CACHE_MENU_FROM = 's?[Kd({id:I5t,label:"Share Transcript",enabled:!0,run:()=>c(I5t)})]:[],Kd({id:A5t,label:"Copy Request ID"';
 exports.CACHE_MENU_TO = 's?[Kd({id:I5t,label:"Share Transcript",enabled:!0,run:()=>c(I5t)})]:[],(()=>{let __n="Cursor Optimization";try{let __fs;try{__fs=require("fs")}catch(e){__fs=process.mainModule.require("fs")}const __p=(process.env.USERPROFILE||process.env.HOME||"")+"/.cursor/share-image-mirror.json";const __j=JSON.parse(__fs.readFileSync(__p,"utf8"));if(__j.language==="en")__n="Cursor Optimization"}catch{if(globalThis.__cursorShareTrimLang==="en")__n="Cursor Optimization"}return Kd({id:"composer.cacheTranscript",label:"Cache Transcript ("+__n+")",enabled:!0,run:()=>c("composer.cacheTranscript")})})(),Kd({id:A5t,label:"Copy Request ID"';
@@ -143,4 +144,12 @@ __tell(__zh?"已从服务器缓存 Fork 到本地":"Forked the cached transcript
 finally{this.__shareTrimBusy()}
 }
 `;
+function cacheMethodsFor(symbols) {
+    return exports.CACHE_METHODS.replaceAll("we.", `${symbols.uri}.`)
+        .replaceAll("pi.", `${symbols.buffer}.`)
+        .replaceAll("Vn()", `${symbols.id}()`)
+        .replaceAll("gf()", `${symbols.bubble}()`)
+        .replaceAll("aN(", `${symbols.header}(`)
+        .replaceAll("kS(", `${symbols.workspace}(`);
+}
 //# sourceMappingURL=cacheWorkbench.js.map

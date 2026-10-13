@@ -68,7 +68,10 @@ async function cursorVersion() {
 async function installPatchesOnStartup(output) {
     const result = await writeWorkbenchPatches(output);
     const version = await cursorVersion();
-    output.appendLine(`[share-trim] Cursor ${version} desktop=${result.cached} glass=${result.glass}`);
+    output.appendLine(`[share-trim] Cursor ${version} share=${result.share} error=${result.failure} cache=${result.cached} menu=${result.desktopMenu} glass=${result.glass}`);
+    if (result.detail) {
+        output.appendLine(`[share-trim] ${result.detail}`);
+    }
     if (result.writeError) {
         void vscode.window.showErrorMessage(`无法写入 Cursor 程序文件：${result.writeError}`);
         return;
@@ -78,7 +81,7 @@ async function installPatchesOnStartup(output) {
         return;
     }
     if (result.cached === "missing-anchor" && result.glass === "missing-anchor") {
-        void vscode.window.showWarningMessage(`当前 Cursor ${version} 对不上缓存补丁，Fork 不可用。插件支持 3.21.16 / 3.21.18。`);
+        void vscode.window.showWarningMessage(`当前 Cursor ${version} 的分享菜单对不上，Fork 不可用。输出通道里会写明 menu、fork、command 哪一项没有对上。`);
     }
 }
 async function writeWorkbenchPatches(output) {
@@ -110,12 +113,18 @@ async function writeWorkbenchPatches(output) {
     const desktopMenu = (0, sharePatch_1.applyEditorTitleCachePatch)(cached.source);
     const glassFile = path.join(vscode.env.appRoot, ...GLASS_RELATIVE);
     let glassStatus = "unreadable";
+    let glassDetail = "";
+    const detail = [share.detail, failure.detail, cached.detail, desktopMenu.detail].filter(Boolean).join("; ");
     try {
         const glassSource = await fs.readFile(glassFile, "utf8");
         output.appendLine(`[share-trim] 玻璃窗缓存补丁=${glassSource.includes("/*share-cache-1*/")}`);
         const glass = (0, sharePatch_1.applyGlassShareCachePatch)(glassSource);
         glassStatus = glass.status;
+        glassDetail = [glass.detail, glassDetail].filter(Boolean).join("; ");
         const glassMenu = (0, sharePatch_1.applyEditorTitleCachePatch)(glass.status === "inserted" ? glass.source : glassSource);
+        if (glassMenu.detail) {
+            glassDetail = [glassDetail, glassMenu.detail].filter(Boolean).join("; ");
+        }
         if (glass.status === "inserted" || glassMenu.status === "inserted") {
             const next = glassMenu.status === "inserted" ? glassMenu.source : glass.source;
             await fs.writeFile(glassFile, next);
@@ -146,6 +155,7 @@ async function writeWorkbenchPatches(output) {
                 cached: cached.status,
                 desktopMenu: desktopMenu.status,
                 glass: glassStatus,
+                detail: [detail, glassDetail].filter(Boolean).join("; "),
                 writeError: message,
             };
         }
@@ -156,6 +166,7 @@ async function writeWorkbenchPatches(output) {
         cached: cached.status,
         desktopMenu: desktopMenu.status,
         glass: glassStatus,
+        detail: [detail, glassDetail].filter(Boolean).join("; "),
     };
 }
 async function trimAndShare(output) {
@@ -170,7 +181,7 @@ async function trimAndShare(output) {
         return;
     }
     if (result.share === "missing-anchor" && result.failure === "missing-anchor" && result.cached === "missing-anchor") {
-        void vscode.window.showErrorMessage(`当前 Cursor ${version} 对不上，无法安装 Cursor Optimization。插件支持 3.21.16 / 3.21.18。`);
+        void vscode.window.showErrorMessage(`当前 Cursor ${version} 的分享代码对不上，补丁没有写入。输出通道里会写明 share、menu、fork、command 哪一项数量不对。`);
         return;
     }
     if (result.share === "inserted" || result.failure === "inserted" || result.cached === "inserted" || result.desktopMenu === "inserted") {

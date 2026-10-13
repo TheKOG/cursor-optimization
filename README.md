@@ -30,12 +30,14 @@ Cursor 自带的 **Share Transcript** 是只读快照。**Cache Transcript (Curs
 
 ## 使用
 
-1. 命令面板执行 **Cursor Optimization: Trim conversation to the share limit and share**。它把长度裁剪和会话缓存写进 Cursor 程序，按 Cursor 3.21.16 编写。
+1. 命令面板执行 **Cursor Optimization: Trim conversation to the share limit and share**。它把长度裁剪和会话缓存写进 Cursor 程序。定位靠的是 `shareConversation`、`forkSharedConversation` 和 **Share Transcript** 这些不会被压缩掉的名字，不绑定某一个 Cursor 版本号。
 2. 完全退出所有 Cursor 进程后再打开。只重载窗口不会换上已经载入的程序脚本。
 3. 在 **Cursor Optimization** 面板里确认开关，再点 **Share Transcript**。
 4. 要留下一份可 Fork 的缓存时，打开聊天右上角菜单，点 **Cache Transcript (Cursor Optimization)**。然后在面板的 **本地会话** 里刷新、导入、删除、导出或 Fork。
 
 Cursor 升级会覆盖安装目录里的修改。升级后再执行一次上面的命令，并重新打开 Cursor。
+
+压缩后的局部变量名变了不用改插件。分享函数的写法、菜单上的 **Share Transcript**，或 `forkSharedConversation` 的实现如果被 Cursor 改掉，定位还是会失败。这些能力没有公开接口，不存在任意版本都不用再改的做法。
 
 ## 设置
 
@@ -87,12 +89,14 @@ The **Local chats** section of the **Cursor Optimization** panel lists those cac
 
 ## Usage
 
-1. Run **Cursor Optimization: Trim conversation to the share limit and share** from the Command Palette. This writes the length trim and the transcript cache into the Cursor installation. The patch matches Cursor 3.21.16.
+1. Run **Cursor Optimization: Trim conversation to the share limit and share** from the Command Palette. This writes the length trim and the transcript cache into the Cursor installation. It finds the sites by the stable names `shareConversation`, `forkSharedConversation`, and **Share Transcript**, rather than by a Cursor version number.
 2. Quit every Cursor process, then open Cursor again. Reloading the window does not replace the program script already loaded.
 3. Check the switches in the **Cursor Optimization** panel, then use **Share Transcript**.
 4. To keep a cache you can fork, open the chat's top-right menu and choose **Cache Transcript (Cursor Optimization)**. Then refresh, import, delete, export, or fork it from **Local chats** in the panel.
 
 A Cursor update overwrites the installation change. Run the command again after an update, then reopen Cursor.
+
+Renamed minified locals do not require a plugin change. The match still fails if Cursor changes the share function's shape, the **Share Transcript** menu, or how `forkSharedConversation` is implemented. There is no public API that keeps this working across every version.
 
 ## Settings
 

@@ -442,6 +442,51 @@ function testEditorTitleCachePatch() {
   assert.strictEqual(applyEditorTitleCachePatch("nope").status, "missing-anchor");
 }
 
+function testRenamedBundle() {
+  const source = [
+    'Qx({id:aa,label:"Share Transcript",enabled:!0,run:()=>go(aa)})]:[],Qx({id:bb,label:"Copy Request ID"',
+    'async forkSharedConversation(x,y){if(!Gate()){return}n=Id();const o=this.modelConfigService.getModelConfig("composer"),a={...Hdr(o,n),name:`t`,workspaceIdentifier:Ws(this.workspaceContextService.getWorkspace())},c=s.messages.map(u=>({...Bub(),type:u.type}))',
+    "folderUri:Uri.file(u)",
+    "bufferOrReadableOrStream:Buf.fromString(A)",
+    'var ShareCmd=class extends Act{constructor(){super({id:aa,title:{value:"Share Transcript",original:"Share Transcript"},f1:!1})}async run(acc,arg){const svc=acc.get(Svc);const hit=Resolve(acc,typeof arg=="string"?arg:void 0);await svc.shareConversation(1)}};__decorate([Dec(aa)],ShareCmd.prototype,"run",null);Reg(ShareCmd);',
+    '{command:{id:aa,title:"Share Transcript",icon:Ico.link},group:"1_chatTools",order:2,when:When.share},{command:{id:cc,title:"Copy Request ID"},group:"1_chatTools",order:3,when:When.copy}',
+    'async shareConversation(a,b,c){if(!Gate())throw new Error("x");r=await client.shareConversation(new Msg({conversationId:a.data.composerId,title:b,visibility:c,messages:list,latestPlan:plan}));return{shareId:r.shareId}',
+    'function qx_(err){return err instanceof Error&&err.message==="No content to share"?"Failed to share transcript. Agent conversation is empty.":zz_(err)?"This chat is too large to share. Try sharing a shorter chat.":"Failed to share transcript. Try again later."}',
+  ].join("\n");
+
+  const trim = applyShareTrimPatch(source);
+  assert.strictEqual(trim.status, "inserted", trim.detail);
+  assert.ok(trim.source.includes("if(!Gate())"));
+  assert.ok(trim.source.includes("new Msg({conversationId:a.data.composerId,title:title,visibility:c,messages:msgs,latestPlan:includePlan?plan:void 0})"));
+  assert.ok(!trim.source.includes("latestPlan:plan})"));
+
+  const error = applyShareErrorPatch(trim.source);
+  assert.strictEqual(error.status, "inserted", error.detail);
+  assert.ok(error.source.includes("function qx_(err){const __why=err&&"));
+  assert.ok(error.source.includes("zz_(err)?"));
+
+  const cache = applyShareCachePatch(source);
+  assert.strictEqual(cache.status, "inserted", cache.detail);
+  assert.ok(cache.source.includes("Uri.joinPath"));
+  assert.ok(cache.source.includes("Buf.fromString"));
+  assert.ok(cache.source.includes("Id()"));
+  assert.ok(cache.source.includes("Hdr("));
+  assert.ok(cache.source.includes("Ws("));
+  assert.ok(cache.source.includes("Bub()"));
+  assert.ok(!cache.source.includes("we.joinPath"));
+  assert.ok(cache.source.includes("Reg(__ShareTrimForkCommand)"));
+  assert.ok(cache.source.includes("acc.get(Svc).cacheTranscript"));
+  assert.ok(cache.source.includes("Resolve(acc,typeof arg==\"string\"?arg:void 0)"));
+  const methodsStart = cache.source.indexOf("async __shareTrimLang()");
+  const methodsEnd = cache.source.indexOf("async forkSharedConversation(x,y){if(!Gate())");
+  new Function(`class __RenamedCache {${cache.source.slice(methodsStart, methodsEnd)}}`);
+
+  const editor = applyEditorTitleCachePatch(source);
+  assert.strictEqual(editor.status, "inserted", editor.detail);
+  assert.ok(editor.source.includes("order:2.5,when:When.copy"));
+  assert.ok(editor.source.includes('icon:Ico.link'));
+}
+
 async function main() {
   await testKeepsLongestSuffix();
   await testKeepsImagesFromTrimmedMessages();
@@ -460,6 +505,7 @@ async function main() {
   testCachePatch();
   testGlassCachePatch();
   testEditorTitleCachePatch();
+  testRenamedBundle();
   console.log("share trim tests passed");
 }
 
