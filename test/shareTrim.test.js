@@ -487,6 +487,55 @@ function testRenamedBundle() {
   assert.ok(editor.source.includes('icon:Ico.link'));
 }
 
+function testCursor32412Shape() {
+  const desktop = [
+    'lh({id:H8t,label:"Share Transcript",enabled:!0,run:()=>c(H8t)})]:[],lh({id:W8t,label:"Copy Request ID"',
+    'async forkSharedConversation(e,t){if(!sit()){return}n=zn();const o=this.modelConfigService.getModelConfig("composer"),a={...O5(o,n),name:`t`,workspaceIdentifier:pS(this.workspaceContextService.getWorkspace())},c=s.messages.map(u=>({...Af(),type:u.type}))',
+    "folderUri:Ee.file(h)",
+    "bufferOrReadableOrStream:wi.fromString(A)",
+    'var YBp=class extends pt{constructor(){super({id:H8t,title:{value:"Share Transcript",original:"Share Transcript"},f1:!1,icon:Pe.link})}async run(e,t){const n=e.get(Hh);const p=hBy(e,typeof t=="string"?t:void 0);await n.shareConversation(1)}};ie([zs(H8t)],YBp.prototype,"run",null);qe(YBp);',
+    '{command:{id:H8t,title:"Share Transcript",icon:Pe.link},group:"1_chatTools",order:2,when:he.and(Su.Scheme.isEqualTo(gt.composer),kKt)},{command:{id:a$s,title:"Copy Request ID"},group:"1_chatTools",order:3,when:Su.Scheme.isEqualTo(gt.composer)}',
+  ].join("\n");
+  const cache = applyShareCachePatch(desktop);
+  assert.strictEqual(cache.status, "inserted", cache.detail);
+  assert.ok(cache.source.includes('ie([zs("composer.cacheTranscript")]'));
+  assert.ok(cache.source.includes('ie([zs("shareImageMirror.forkCache")]'));
+  assert.ok(cache.source.includes("qe(__ShareTrimCacheCommand)"));
+  assert.ok(cache.source.includes("qe(__ShareTrimForkCommand)"));
+  assert.ok(cache.source.includes("Ee.joinPath"));
+  assert.ok(cache.source.includes("wi.fromString"));
+  assert.ok(cache.source.includes("bubbleId:zn()"));
+  assert.ok(!cache.source.includes("__decorate(["));
+  const editor = applyEditorTitleCachePatch(desktop);
+  assert.strictEqual(editor.status, "inserted", editor.detail);
+  assert.ok(editor.source.includes('id:a$s,title:"Copy Request ID"'));
+  assert.ok(editor.source.includes("order:2.5,when:Su.Scheme.isEqualTo(gt.composer)"));
+  const menu = editor.source.slice(editor.source.indexOf("{command:{id:H8t"));
+  new Function(`return [${menu}];`);
+
+  const bracedWhen =
+    '{command:{id:H8t,title:"Share Transcript",icon:Pe.link},group:"1_chatTools",order:2,when:Ctx.and(Ctx.equals("x","}"),Flag)},{command:{id:a$s,title:"Copy Request ID"},group:"1_chatTools",order:3,when:Su.Scheme.isEqualTo(gt.composer)}';
+  const braced = applyEditorTitleCachePatch(bracedWhen);
+  assert.strictEqual(braced.status, "inserted", braced.detail);
+  assert.ok(braced.source.includes('Ctx.equals("x","}"),Flag'));
+
+  const glass = [
+    'Tg({id:DHt,label:"Share Transcript",enabled:!0,run:()=>l(DHt)})]:[],Tg({id:T0n,label:"Copy Request ID"',
+    'async forkSharedConversation(t,e){if(!z6e()){return}n=xi();const o=this.modelConfigService.getModelConfig("composer"),a={...L4(o,n),name:`t`,workspaceIdentifier:T0(this.workspaceContextService.getWorkspace())},c=s.messages.map(u=>({...X_(),type:u.type}))',
+    "folderUri:rt.file(h)",
+    "bufferOrReadableOrStream:wr.fromString(A)",
+    'var XG_=class extends sn{constructor(){super({id:DHt,title:{value:"Share Transcript",original:"Share Transcript"},f1:!1})}async run(t,e){const n=t.get(Zh);const h=FMw(t,typeof e=="string"?e:void 0);await n.shareConversation(1)}};Re([la(DHt)],XG_.prototype,"run",null);Ht(XG_);',
+  ].join("\n");
+  const glassCache = applyGlassShareCachePatch(glass);
+  assert.strictEqual(glassCache.status, "inserted", glassCache.detail);
+  assert.ok(glassCache.source.includes('Re([la("composer.cacheTranscript")]'));
+  assert.ok(glassCache.source.includes("Ht(__ShareTrimForkCommand)"));
+  assert.ok(glassCache.source.includes("rt.joinPath"));
+  assert.ok(glassCache.source.includes("wr.wrap"));
+  assert.ok(glassCache.source.includes("const base=X_()"));
+  assert.ok(!glassCache.source.includes("Ze.joinPath"));
+}
+
 async function main() {
   await testKeepsLongestSuffix();
   await testKeepsImagesFromTrimmedMessages();
@@ -506,6 +555,7 @@ async function main() {
   testGlassCachePatch();
   testEditorTitleCachePatch();
   testRenamedBundle();
+  testCursor32412Shape();
   console.log("share trim tests passed");
 }
 

@@ -37,7 +37,7 @@ Cursor 自带的 **Share Transcript** 是只读快照。**Cache Transcript (Curs
 
 Cursor 升级会覆盖安装目录里的修改。升级后再执行一次上面的命令，并重新打开 Cursor。
 
-压缩后的局部变量名变了不用改插件。分享函数的写法、菜单上的 **Share Transcript**，或 `forkSharedConversation` 的实现如果被 Cursor 改掉，定位还是会失败。这些能力没有公开接口，不存在任意版本都不用再改的做法。
+压缩后的局部名字变了不用改插件，包括装饰器不再叫 `__decorate`、变量名里带 `$`。插件按 **Share Transcript**、`shareConversation`、`forkSharedConversation` 这些稳定名字就地认出菜单、命令和符号。分享函数的写法、菜单文案，或 `forkSharedConversation` 的实现如果被 Cursor 改掉，定位还是会失败。这些能力没有公开接口，不存在任意版本都不用再改的做法。
 
 ## 设置
 
@@ -96,7 +96,7 @@ The **Local chats** section of the **Cursor Optimization** panel lists those cac
 
 A Cursor update overwrites the installation change. Run the command again after an update, then reopen Cursor.
 
-Renamed minified locals do not require a plugin change. The match still fails if Cursor changes the share function's shape, the **Share Transcript** menu, or how `forkSharedConversation` is implemented. There is no public API that keeps this working across every version.
+Renamed minified locals do not require a plugin change. That includes a decorator helper that is no longer named `__decorate`, and identifiers that contain `$`. The plugin finds the menu, command, and symbols from the stable names **Share Transcript**, `shareConversation`, and `forkSharedConversation`. The match still fails if Cursor changes the share function's shape, the menu wording, or how `forkSharedConversation` is implemented. There is no public API that keeps this working across every version.
 
 ## Settings
 

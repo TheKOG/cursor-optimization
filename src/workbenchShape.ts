@@ -40,6 +40,7 @@ export type ShareCommandSite = {
   base: string;
   shareId: string;
   decorator: string;
+  decorateFn: string;
   register: string;
   accessor: string;
   arg: string;
@@ -54,21 +55,34 @@ export type ForkSite = {
   index: number;
 };
 
-const MENU_RE =
-  /(\w+)\(\{id:(\w+),label:"Share Transcript",enabled:!0,run:\(\)=>(\w+)\(\2\)\}\)\]:\[\],\1\(\{id:(\w+),label:"Copy Request ID"/g;
+const ID = "[\\w$]+";
 
-const EDITOR_RE =
-  /\{command:\{id:(\w+),title:"Share Transcript",icon:(\w+)\.link\},group:"1_chatTools",order:2,when:([^}]+)\},\{command:\{id:(\w+),title:"Copy Request ID"\},group:"1_chatTools",order:3,when:([^}]+)\}/g;
+const MENU_RE = new RegExp(
+  `(${ID})\\(\\{id:(${ID}),label:"Share Transcript",enabled:!0,run:\\(\\)=>(${ID})\\(\\2\\)\\}\\)\\]:\\[\\],\\1\\(\\{id:(${ID}),label:"Copy Request ID"`,
+  "g"
+);
 
-const SHARE_HEAD_RE = /async shareConversation\((\w+),(\w+),(\w+)\)\{if\(!(\w+)\(\)\)/g;
+const EDITOR_RE = new RegExp(
+  `\\{command:\\{id:(${ID}),title:"Share Transcript",icon:(${ID})\\.link\\},group:"1_chatTools",order:2,when:([\\s\\S]*?)\\},\\{command:\\{id:(${ID}),title:"Copy Request ID"\\},group:"1_chatTools",order:3,when:([\\s\\S]*?)\\}`,
+  "g"
+);
 
-const SHARE_SEND_RE =
-  /(\w+)=await (\w+)\.shareConversation\(new (\w+)\(\{conversationId:([^,]+),title:(\w+),visibility:(\w+),messages:(\w+),latestPlan:(\w+)\}\)\)/g;
+const SHARE_HEAD_RE = new RegExp(
+  `async shareConversation\\((${ID}),(${ID}),(${ID})\\)\\{if\\(!(${ID})\\(\\)\\)`,
+  "g"
+);
 
-const FORK_RE = /async forkSharedConversation\((\w+),(\w+)\)\{if\(!(\w+)\(\)\)/g;
+const SHARE_SEND_RE = new RegExp(
+  `(${ID})=await (${ID})\\.shareConversation\\(new (${ID})\\(\\{conversationId:([^,]+),title:(${ID}),visibility:(${ID}),messages:(${ID}),latestPlan:(${ID})\\}\\)\\)`,
+  "g"
+);
 
-const ERROR_RE =
-  /function (\w+)\((\w+)\)\{return \2 instanceof Error&&\2\.message==="No content to share"\?"Failed to share transcript\. Agent conversation is empty\.":(\w+)\(\2\)\?"This chat is too large to share\. Try sharing a shorter chat\.":"Failed to share transcript\. Try again later\."\}/g;
+const FORK_RE = new RegExp(`async forkSharedConversation\\((${ID}),(${ID})\\)\\{if\\(!(${ID})\\(\\)\\)`, "g");
+
+const ERROR_RE = new RegExp(
+  `function (${ID})\\((${ID})\\)\\{return \\2 instanceof Error&&\\2\\.message==="No content to share"\\?"Failed to share transcript\\. Agent conversation is empty\\.":(${ID})\\(\\2\\)\\?"This chat is too large to share\\. Try sharing a shorter chat\\.":"Failed to share transcript\\. Try again later\\."\\}`,
+  "g"
+);
 
 export function matchAll(source: string, pattern: RegExp): RegExpMatchArray[] {
   return [...source.matchAll(new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g"))];
@@ -139,12 +153,12 @@ export function findShareErrors(source: string): Array<{ name: string; param: st
 
 export function discoverSymbols(source: string, forkIndex: number): CacheSymbols | undefined {
   const forkBody = source.slice(forkIndex, forkIndex + 4000);
-  const id = forkBody.match(/=(\w+)\(\);const \w+=this\.modelConfigService\.getModelConfig\("composer"\)/);
-  const header = forkBody.match(/\{\.\.\.(\w+)\(\w+,\w+\),name:/);
-  const workspace = forkBody.match(/workspaceIdentifier:(\w+)\(this\.workspaceContextService/);
-  const bubble = forkBody.match(/\{\.\.\.(\w+)\(\),type:/);
-  const uri = source.match(/folderUri:(\w+)\.file\(/);
-  const buffer = source.match(/bufferOrReadableOrStream:(\w+)\.fromString\(/);
+  const id = forkBody.match(new RegExp(`=(${ID})\\(\\);const ${ID}=this\\.modelConfigService\\.getModelConfig\\("composer"\\)`));
+  const header = forkBody.match(new RegExp(`\\{\\.\\.\\.(${ID})\\(${ID},${ID}\\),name:`));
+  const workspace = forkBody.match(new RegExp(`workspaceIdentifier:(${ID})\\(this\\.workspaceContextService`));
+  const bubble = forkBody.match(new RegExp(`\\{\\.\\.\\.(${ID})\\(\\),type:`));
+  const uri = source.match(new RegExp(`folderUri:(${ID})\\.file\\(`));
+  const buffer = source.match(new RegExp(`bufferOrReadableOrStream:(${ID})\\.fromString\\(`));
   if (!id || !header || !workspace || !bubble || !uri || !buffer) {
     return undefined;
   }
@@ -158,10 +172,17 @@ export function discoverSymbols(source: string, forkIndex: number): CacheSymbols
   };
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function findShareCommand(source: string): ShareCommandSite | undefined {
   const classes = matchAll(
     source,
-    /var (\w+)=class extends (\w+)\{constructor\(\)\{super\(\{id:(\w+),title:\{value:"Share Transcript",original:"Share Transcript"\}/g
+    new RegExp(
+      `var (${ID})=class extends (${ID})\\{constructor\\(\\)\\{super\\(\\{id:(${ID}),title:\\{value:"Share Transcript",original:"Share Transcript"\\}`,
+      "g"
+    )
   );
   if (classes.length !== 1) {
     return undefined;
@@ -171,7 +192,7 @@ export function findShareCommand(source: string): ShareCommandSite | undefined {
   const shareId = classes[0][3];
   const classAt = classes[0].index ?? 0;
   const decorateRe = new RegExp(
-    `__decorate\\(\\[(\\w+)\\(${shareId}\\)\\],${className}\\.prototype,"run",null\\)`
+    `(${ID})\\(\\[(${ID})\\(${escapeRegExp(shareId)}\\)\\],${escapeRegExp(className)}\\.prototype,"run",null\\)`
   );
   const decorate = source.match(decorateRe);
   if (!decorate || decorate.index == null || decorate.index < classAt) {
@@ -181,7 +202,7 @@ export function findShareCommand(source: string): ShareCommandSite | undefined {
   if (runAt < 0 || runAt > decorate.index) {
     return undefined;
   }
-  const run = source.slice(runAt, runAt + 40).match(/^async run\((\w+),(\w+)\)\{/);
+  const run = source.slice(runAt, runAt + 80).match(new RegExp(`^async run\\((${ID}),(${ID})\\)\\{`));
   if (!run) {
     return undefined;
   }
@@ -189,13 +210,17 @@ export function findShareCommand(source: string): ShareCommandSite | undefined {
   const arg = run[2];
   const body = source.slice(runAt, decorate.index);
   const resolver = body.match(
-    new RegExp(`(\\w+)\\(${accessor},typeof ${arg}=="string"\\?${arg}:void 0\\)`)
+    new RegExp(
+      `(${ID})\\(${escapeRegExp(accessor)},typeof ${escapeRegExp(arg)}=="string"\\?${escapeRegExp(arg)}:void 0\\)`
+    )
   );
   if (!resolver) {
     return undefined;
   }
   let service: string | undefined;
-  for (const got of body.matchAll(new RegExp(`const (\\w+)=${accessor}\\.get\\((\\w+)\\)`, "g"))) {
+  for (const got of body.matchAll(
+    new RegExp(`const (${ID})=${escapeRegExp(accessor)}\\.get\\((${ID})\\)`, "g")
+  )) {
     if (body.includes(`${got[1]}.shareConversation`)) {
       service = got[2];
       break;
@@ -204,7 +229,10 @@ export function findShareCommand(source: string): ShareCommandSite | undefined {
   if (!service) {
     return undefined;
   }
-  const calls = matchAll(source, new RegExp(`(?:^|[^\\w$])(\\$?\\w+)\\(${className}\\)`, "g"));
+  const calls = matchAll(
+    source,
+    new RegExp(`(?:^|[^\\w$])(${ID})\\(${escapeRegExp(className)}\\)`, "g")
+  );
   const registers = [...new Set(calls.map((match) => match[1]))];
   if (registers.length !== 1) {
     return undefined;
@@ -217,7 +245,8 @@ export function findShareCommand(source: string): ShareCommandSite | undefined {
     className,
     base,
     shareId,
-    decorator: decorate[1],
+    decorator: decorate[2],
+    decorateFn: decorate[1],
     register: registers[0],
     accessor,
     arg,
@@ -229,7 +258,9 @@ export function findShareCommand(source: string): ShareCommandSite | undefined {
 }
 
 export function shareCommandBlock(site: ShareCommandSite): string {
-  return `var __ShareTrimCacheCommand=class extends ${site.base}{constructor(){super({id:"composer.cacheTranscript",title:{value:"Cache Transcript",original:"Cache Transcript"},f1:!1})}async run(${site.accessor},${site.arg}){const __m=${site.resolver}(${site.accessor},typeof ${site.arg}=="string"?${site.arg}:void 0);const __id=__m&&__m.success&&typeof __m.composerId=="string"?__m.composerId:typeof ${site.arg}=="string"?${site.arg}:void 0;if(!__id)return;await ${site.accessor}.get(${site.service}).cacheTranscript(__id)}};__decorate([${site.decorator}("composer.cacheTranscript")],__ShareTrimCacheCommand.prototype,"run",null);var __ShareTrimForkCommand=class extends ${site.base}{constructor(){super({id:"shareImageMirror.forkCache",title:{value:"Fork Cached Transcript",original:"Fork Cached Transcript"},f1:!1})}async run(${site.accessor},${site.arg}){if(typeof ${site.arg}!="string"||!${site.arg})return;await ${site.accessor}.get(${site.service}).forkCachedTranscript(${site.arg})}};__decorate([${site.decorator}("shareImageMirror.forkCache")],__ShareTrimForkCommand.prototype,"run",null);`;
+  const decorate = (id: string) =>
+    `${site.decorateFn}([${site.decorator}("${id}")],`;
+  return `var __ShareTrimCacheCommand=class extends ${site.base}{constructor(){super({id:"composer.cacheTranscript",title:{value:"Cache Transcript",original:"Cache Transcript"},f1:!1})}async run(${site.accessor},${site.arg}){const __m=${site.resolver}(${site.accessor},typeof ${site.arg}=="string"?${site.arg}:void 0);const __id=__m&&__m.success&&typeof __m.composerId=="string"?__m.composerId:typeof ${site.arg}=="string"?${site.arg}:void 0;if(!__id)return;await ${site.accessor}.get(${site.service}).cacheTranscript(__id)}};${decorate("composer.cacheTranscript")}__ShareTrimCacheCommand.prototype,"run",null);var __ShareTrimForkCommand=class extends ${site.base}{constructor(){super({id:"shareImageMirror.forkCache",title:{value:"Fork Cached Transcript",original:"Fork Cached Transcript"},f1:!1})}async run(${site.accessor},${site.arg}){if(typeof ${site.arg}!="string"||!${site.arg})return;await ${site.accessor}.get(${site.service}).forkCachedTranscript(${site.arg})}};${decorate("shareImageMirror.forkCache")}__ShareTrimForkCommand.prototype,"run",null);`;
 }
 
 function countOf(source: string, needle: string): number {
