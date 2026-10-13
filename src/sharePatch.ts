@@ -281,7 +281,11 @@ function upgradeCacheMethods(source: string): { source: string; changed: boolean
     return { source, changed: false };
   }
   const current = source.slice(start, end);
-  if (current.includes("this.__shareTrimBusyHandle") && current.includes("fs.existsSync(p)")) {
+  if (
+    current.includes("this.__shareTrimBusyHandle") &&
+    current.includes("fs.existsSync(p)") &&
+    current.includes("workspaceStorageHome")
+  ) {
     return { source, changed: false };
   }
   const fork = findForkSites(source.slice(end))[0];

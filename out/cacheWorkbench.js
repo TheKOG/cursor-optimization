@@ -99,10 +99,8 @@ const raw=file.value.buffer;
 const text=new TextDecoder().decode(raw instanceof Uint8Array?raw:new Uint8Array(raw));
 const cache=JSON.parse(text);
 if(!cache||!Array.isArray(cache.messages)||!cache.messages.length)throw new Error(__zh?"缓存里没有对话":"Cached chat has no messages");
-const imgDir=we.joinPath(dir,e,"images");
-await this.composerFileService.createFolder({uri:we.joinPath(dir,e),composerData:void 0}).catch(()=>{});
-await this.composerFileService.createFolder({uri:imgDir,composerData:void 0}).catch(()=>{});
 const __fromB64=value=>{if(typeof Buffer!=="undefined")return new Uint8Array(Buffer.from(value,"base64"));const bin=atob(value);const out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i)&255;return out};
+const __localImagePath=async(fileName,bytes)=>{const storage=this._environmentService&&this._environmentService.workspaceStorageHome;const workspaceId=this.workspaceContextService.getWorkspace().id;if(storage&&workspaceId){try{const localDir=we.joinPath(storage,workspaceId,"images");await this.composerFileService.createFolder({uri:we.joinPath(storage,workspaceId),composerData:void 0}).catch(()=>{});await this.composerFileService.createFolder({uri:localDir,composerData:void 0}).catch(()=>{});const fileUri=we.joinPath(localDir,fileName);await this.composerFileService.writeFile({uri:fileUri,bufferOrReadableOrStream:pi.wrap(bytes),composerData:void 0});if(fileUri.scheme==="file"&&fileUri.fsPath)return fileUri.fsPath}catch(err){console.warn("[share-trim] local image",err&&(err.message||String(err)))}}try{let fs;try{fs=require("fs")}catch(e){fs=process.mainModule.require("fs")}const home=process.env.HOME||process.env.USERPROFILE||"";if(!home)return"";const safe=String(workspaceId||"local").replace(/[^A-Za-z0-9_-]/g,"").slice(0,80)||"local";const folder=home+"/.cursor/share-trim-images/"+safe;fs.mkdirSync(folder,{recursive:!0});const full=folder+"/"+fileName;fs.writeFileSync(full,typeof Buffer!=="undefined"?Buffer.from(bytes):bytes);return full}catch(err){console.warn("[share-trim] local image fs",err&&(err.message||String(err)));return ""}};
 const bubbles=[];
 for(let mi=0;mi<cache.messages.length;mi++){
 const m=cache.messages[mi];
@@ -116,9 +114,8 @@ if(typeof image.base64==="string"&&image.base64){
 const match=String(image.path||"").match(/\\.([A-Za-z0-9]{1,8})$/);
 const ext=match?match[1].toLowerCase():"png";
 const name=String(image.uuid||"img").replace(/[^A-Za-z0-9_-]/g,"").slice(0,60)||"img";
-const fileUri=we.joinPath(imgDir,mi+"-"+ii+"-"+name+"."+ext);
-await this.composerFileService.writeFile({uri:fileUri,bufferOrReadableOrStream:pi.wrap(__fromB64(image.base64)),composerData:void 0});
-imagePath=fileUri.fsPath;
+const local=await __localImagePath(mi+"-"+ii+"-"+name+"."+ext,__fromB64(image.base64));
+if(local)imagePath=local;
 }
 if(!imagePath)continue;
 selected.push({uuid:image.uuid||Vn(),path:imagePath,dimension:image.dimension&&typeof image.dimension==="object"?{width:Number(image.dimension.width)||0,height:Number(image.dimension.height)||0}:{width:0,height:0},loadedAt:Date.now()});

@@ -505,7 +505,15 @@ function testCursor32412Shape() {
   assert.ok(cache.source.includes("Ee.joinPath"));
   assert.ok(cache.source.includes("wi.fromString"));
   assert.ok(cache.source.includes("bubbleId:zn()"));
+  assert.ok(cache.source.includes("workspaceStorageHome"));
+  assert.ok(cache.source.includes("share-trim-images"));
+  assert.ok(!cache.source.includes("joinPath(imgDir"));
   assert.ok(!cache.source.includes("__decorate(["));
+  const staleImages = cache.source.replace("workspaceStorageHome", "oldImageHome");
+  const upgradedImages = applyShareCachePatch(staleImages);
+  assert.strictEqual(upgradedImages.status, "inserted", upgradedImages.detail);
+  assert.ok(upgradedImages.source.includes("workspaceStorageHome"));
+  assert.ok(!upgradedImages.source.includes("oldImageHome"));
   const editor = applyEditorTitleCachePatch(desktop);
   assert.strictEqual(editor.status, "inserted", editor.detail);
   assert.ok(editor.source.includes('id:a$s,title:"Copy Request ID"'));
